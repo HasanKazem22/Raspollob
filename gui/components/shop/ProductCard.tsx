@@ -9,11 +9,9 @@ import { resolveMediaUrl } from "@/lib/api";
 
 interface ProductCardProps {
   product: any;
-  /** Offline placeholder: rendered without link or cart actions */
-  isPlaceholder?: boolean;
 }
 
-export function ProductCard({ product, isPlaceholder = false }: ProductCardProps) {
+export function ProductCard({ product }: ProductCardProps) {
   const { cartItems, addToCart, updateQuantity, removeFromCart } = useCart();
 
   const cartItem = cartItems.find((item) => item.id === String(product.id));
@@ -80,7 +78,7 @@ export function ProductCard({ product, isPlaceholder = false }: ProductCardProps
             e.stopPropagation();
           }}
         >
-          {cartItem && !isPlaceholder ? (
+          {cartItem ? (
             <QuantityAdjuster
               quantity={cartItem.quantity}
               onDecrease={() =>
@@ -94,7 +92,7 @@ export function ProductCard({ product, isPlaceholder = false }: ProductCardProps
             <button
               className="w-full h-[34px] rounded-full border border-zinc-300 text-xs font-bold text-zinc-800 hover:bg-[#5c8b29] hover:border-[#5c8b29] hover:text-white transition-colors duration-300 disabled:opacity-50 disabled:pointer-events-none"
               onClick={() => addToCart(product, 1)}
-              disabled={isPlaceholder || isOutOfStock}
+              disabled={isOutOfStock}
             >
               {isOutOfStock ? "Out of Stock" : "Add to Cart"}
             </button>
@@ -103,10 +101,6 @@ export function ProductCard({ product, isPlaceholder = false }: ProductCardProps
       </div>
     </Card>
   );
-
-  if (isPlaceholder) {
-    return <div className="block h-full">{card}</div>;
-  }
 
   return (
     <Link

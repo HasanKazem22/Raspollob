@@ -4,7 +4,7 @@ import { productService } from "@/services/productService";
 import { HomeSection } from "@/components/ui/home-section";
 import { useStoreConfig } from "@/context/StoreConfigContext";
 import { useRemoteData } from "@/hooks/useRemoteData";
-import { HOME_SECTION_SIZE } from "@/data/homePlaceholders";
+import { HOME_SECTION_SIZE } from "@/lib/homeSections";
 import { ProductGrid, hasProductContent } from "./ProductGrid";
 
 const fetchTrending = () =>

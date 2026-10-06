@@ -3,8 +3,6 @@ package com.raspollob.server.config;
 import com.raspollob.server.entity.User; import com.raspollob.server.entity.Role; import com.raspollob.server.entity.Permission; import com.raspollob.server.entity.RolePermission;
 import com.raspollob.server.repository.*;
 import lombok.RequiredArgsConstructor;
-import com.raspollob.server.entity.StoreConfig;
-import com.raspollob.server.repository.StoreConfigRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,9 +18,6 @@ public class DataSeeder implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final com.raspollob.server.service.RolePermissionService rolePermissionService;
-    private final CategoryRepository categoryRepository;
-    private final ProductRepository productRepository;
-    private final StoreConfigRepository storeConfigRepository;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbcTemplate;
 
@@ -35,8 +30,6 @@ public class DataSeeder implements CommandLineRunner {
         seedRoles();
         seedRolePermissionTrees();
         seedAdminUser();
-        seedCategoriesAndProducts();
-        seedStoreConfig();
     }
 
     private void ensureBaseEntityColumnsExist() {
@@ -165,121 +158,4 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
-    private void seedCategoriesAndProducts() {
-        if (categoryRepository.count() == 0) {
-            com.raspollob.server.entity.Category honeyCat = categoryRepository.save(
-                    com.raspollob.server.entity.Category.builder()
-                            .name("Natural Honey")
-                            .slug("natural-honey")
-                            .description("100% pure wild and raw organic honey varieties.")
-                            .displayOrder(1)
-                            .showInNavbar(true)
-                            .showInHome(true)
-                            .isActive(true)
-                            .build()
-            );
-
-            com.raspollob.server.entity.Category oilCat = categoryRepository.save(
-                    com.raspollob.server.entity.Category.builder()
-                            .name("Organic Oils")
-                            .slug("organic-oils")
-                            .description("Traditional cold-pressed wood churned oils.")
-                            .displayOrder(2)
-                            .showInNavbar(true)
-                            .showInHome(true)
-                            .isActive(true)
-                            .build()
-            );
-
-            com.raspollob.server.entity.Product honey = com.raspollob.server.entity.Product.builder()
-                    .name("Premium Raw Sundarban Honey (500g)")
-                    .slug("premium-raw-sundarban-honey-500g")
-                    .sku("HONEY-500G")
-                    .category(honeyCat)
-                    .description("Sourced directly from the wild mangroves of Sundarban, unfiltered and unpasteurized.")
-                    .details("Rich in natural pollen, active enzymes, and antioxidants with a delicate floral aroma.")
-                    .ingredients("100% Pure Raw Sundarban Honey")
-                    .buyingPrice(new java.math.BigDecimal("550.00"))
-                    .sellingPrice(new java.math.BigDecimal("1050.00"))
-                    .offerPrice(new java.math.BigDecimal("850.00"))
-                    .stockQuantity(45)
-                    .isTrending(true)
-                    .isActive(true)
-                    .averageRating(5.0)
-                    .reviewCount(124)
-                    .images(new ArrayList<>())
-                    .build();
-
-            honey.addImage(com.raspollob.server.entity.ProductImage.builder()
-                    .imageUrl("https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&q=80")
-                    .isPrimary(true)
-                    .displayOrder(0)
-                    .altText("Sundarban Honey Front")
-                    .build());
-            honey.addImage(com.raspollob.server.entity.ProductImage.builder()
-                    .imageUrl("https://images.unsplash.com/photo-1587049352851-8d4e89133924?w=800&q=80")
-                    .isPrimary(false)
-                    .displayOrder(1)
-                    .altText("Sundarban Honey Jar")
-                    .build());
-
-            productRepository.save(honey);
-
-            com.raspollob.server.entity.Product oil = com.raspollob.server.entity.Product.builder()
-                    .name("Cold Pressed Mustard Oil (1L)")
-                    .slug("cold-pressed-mustard-oil-1l")
-                    .sku("OIL-MUST-1L")
-                    .category(oilCat)
-                    .description("Extracted using traditional wooden churns (Kachi Ghani) preserving authentic aroma and pungency.")
-                    .details("Pure unrefined mustard oil high in MUFA and natural antioxidants.")
-                    .ingredients("100% Selected Grade-A Mustard Seeds")
-                    .buyingPrice(new java.math.BigDecimal("220.00"))
-                    .sellingPrice(new java.math.BigDecimal("380.00"))
-                    .offerPrice(new java.math.BigDecimal("320.00"))
-                    .stockQuantity(35)
-                    .isTrending(true)
-                    .isActive(true)
-                    .averageRating(4.8)
-                    .reviewCount(89)
-                    .images(new ArrayList<>())
-                    .build();
-
-            oil.addImage(com.raspollob.server.entity.ProductImage.builder()
-                    .imageUrl("https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=800&q=80")
-                    .isPrimary(true)
-                    .displayOrder(0)
-                    .altText("Mustard Oil Bottle")
-                    .build());
-            oil.addImage(com.raspollob.server.entity.ProductImage.builder()
-                    .imageUrl("https://images.unsplash.com/photo-1546554137-f86b9593a222?w=800&q=80")
-                    .isPrimary(false)
-                    .displayOrder(1)
-                    .altText("Mustard Oil Pouring")
-                    .build());
-
-            productRepository.save(oil);
-
-            System.out.println("====== Seeded sample categories and trending products with images & stars ======");
-        }
-    }
-    private void seedStoreConfig() {
-        if (storeConfigRepository.count() == 0) {
-            StoreConfig config = StoreConfig.builder()
-                    .heroBannerImages(java.util.List.of("https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200&q=80"))
-                    .promoBannerImage("https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&q=80")
-                    .categorySectionTitle("Shop by Category")
-                    .categorySectionDesc("Explore our wide range of categories")
-                    .trendingSectionTitle("Trending Now")
-                    .trendingSectionDesc("Our most popular products")
-                    .contactUsInfo("Contact us at info@example.com")
-                    .shippingDeliveryInfo("We ship worldwide.")
-                    .returnsRefundsInfo("30-day return policy.")
-                    .faqsInfo("Frequently Asked Questions")
-                    .trackOrderInfo("Track your order here.")
-                    .needHelpInfo("Need help? Call us at 1-800-123-4567")
-                    .build();
-            storeConfigRepository.save(config);
-            System.out.println("====== Seeded Store Config ======");
-        }
-    }
 }

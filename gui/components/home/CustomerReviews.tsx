@@ -7,7 +7,6 @@ import { useStoreConfig } from "@/context/StoreConfigContext";
 import { HomeSection } from "@/components/ui/home-section";
 import { StarRating } from "@/components/ui/star-display";
 import { resolveMediaUrl } from "@/lib/api";
-import { HOME_SECTION_SIZE, PLACEHOLDER_REVIEW, repeatPlaceholder } from "@/data/homePlaceholders";
 
 function ReviewCard({ review }: { review: CustomerReview }) {
   const initials = review.name
@@ -59,13 +58,8 @@ function ReviewCard({ review }: { review: CustomerReview }) {
 
 export function CustomerReviews() {
   const { config, status } = useStoreConfig();
-  // Placeholders only when the server is unreachable; otherwise real reviews (possibly none)
-  const reviews: CustomerReview[] =
-    status === "offline"
-      ? repeatPlaceholder(PLACEHOLDER_REVIEW, HOME_SECTION_SIZE.reviews)
-      : status === "success"
-        ? config?.customerReviews ?? []
-        : [];
+  // Real reviews only; the section hides when there are none
+  const reviews: CustomerReview[] = status === "success" ? config?.customerReviews ?? [] : [];
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 

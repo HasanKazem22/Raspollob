@@ -5,7 +5,7 @@ import { productService } from "@/services/productService";
 import { HomeSection } from "@/components/ui/home-section";
 import { useStoreConfig } from "@/context/StoreConfigContext";
 import { RemoteStatus, statusFromError } from "@/hooks/useRemoteData";
-import { HOME_SECTION_SIZE } from "@/data/homePlaceholders";
+import { HOME_SECTION_SIZE } from "@/lib/homeSections";
 import type { Product } from "@/types/product";
 import { ProductGrid, hasProductContent } from "./ProductGrid";
 

@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LuChevronLeft, LuChevronRight, LuImage } from "react-icons/lu";
+import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { useStoreConfig } from "@/context/StoreConfigContext";
 import { resolveMediaUrl } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HOME_SECTION_SIZE } from "@/data/homePlaceholders";
 
 const FRAME =
   "relative w-full rounded-2xl md:rounded-3xl overflow-hidden border border-zinc-100 h-[200px] md:h-[256px] lg:h-[320px] bg-[#e8ece7] group";
@@ -22,9 +21,8 @@ export function HeroBanner() {
   const { config, status } = useStoreConfig();
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const isPlaceholder = status === "offline";
-  const images = (config?.heroBannerImages ?? []).filter((img) => img?.trim());
-  const slideCount = isPlaceholder ? HOME_SECTION_SIZE.heroSlides : images.length;
+  const images = status === "success" ? (config?.heroBannerImages ?? []).filter((img) => img?.trim()) : [];
+  const slideCount = images.length;
 
   useEffect(() => {
     if (slideCount <= 1) return;
@@ -42,7 +40,7 @@ export function HeroBanner() {
     );
   }
 
-  // Server answered but no banners configured yet
+  // No banners configured yet, or the server is unreachable
   if (slideCount === 0) return null;
 
   const goTo = (index: number) => setCurrentSlide((index + slideCount) % slideCount);
@@ -57,19 +55,11 @@ export function HeroBanner() {
               index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0"
             }`}
           >
-            {isPlaceholder ? (
-              <div className="w-full h-full transition-colors duration-500 group-hover:bg-[#dce3da] flex flex-col items-center justify-center">
-                <LuImage className="w-8 h-8 text-[#5a6b47]/40 mb-2" />
-                <span className="text-zinc-500 font-bold tracking-wide">Hero Banner Slide {index + 1}</span>
-                <span className="text-xs text-zinc-400 mt-1 font-mono">1920x600px</span>
-              </div>
-            ) : (
-              <img
-                src={resolveMediaUrl(images[index])}
-                alt={`Banner ${index + 1}`}
-                className="w-full h-full object-cover"
-              />
-            )}
+            <img
+              src={resolveMediaUrl(images[index])}
+              alt={`Banner ${index + 1}`}
+              className="w-full h-full object-cover"
+            />
           </div>
         ))}
 

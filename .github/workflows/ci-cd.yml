@@ -79,7 +79,11 @@ jobs:
 
   deploy:
     name: Deploy · ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-    if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop')
+    # Deploys only once the VPS is ready: set the repository variable DEPLOY_ENABLED=true
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      github.event_name != 'pull_request' &&
+      (github.ref_name == 'main' || github.ref_name == 'develop')
     needs: [backend, frontend]
     runs-on: ubuntu-latest
     environment:

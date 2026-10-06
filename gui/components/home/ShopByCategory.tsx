@@ -9,7 +9,7 @@ import { HomeSection } from "@/components/ui/home-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStoreConfig } from "@/context/StoreConfigContext";
 import { useRemoteData } from "@/hooks/useRemoteData";
-import { HOME_SECTION_SIZE, PLACEHOLDER_CATEGORY, repeatPlaceholder } from "@/data/homePlaceholders";
+import { HOME_SECTION_SIZE } from "@/lib/homeSections";
 
 const fetchHomeCategories = () => categoryService.getHomeCategories().then((res) => res.data ?? []);
 
@@ -44,7 +44,7 @@ export function ShopByCategory() {
   const { status, data: categories = [] } = useRemoteData(fetchHomeCategories);
   const [showAll, setShowAll] = useState(false);
 
-  if (status === "error" || (status === "success" && categories.length === 0)) return null;
+  if (status === "error" || status === "offline" || (status === "success" && categories.length === 0)) return null;
 
   const limit = HOME_SECTION_SIZE.categories;
   const visible = showAll ? categories : categories.slice(0, limit);
@@ -61,13 +61,6 @@ export function ShopByCategory() {
             <div key={i} className="flex flex-col items-center gap-2.5">
               <Skeleton className="w-full aspect-square rounded-2xl" />
               <Skeleton className="h-3 w-3/4" />
-            </div>
-          ))}
-
-        {status === "offline" &&
-          repeatPlaceholder(PLACEHOLDER_CATEGORY, limit).map((cat) => (
-            <div key={cat.id} className="flex flex-col items-center gap-2.5 group">
-              <CategoryTile category={cat} />
             </div>
           ))}
 
