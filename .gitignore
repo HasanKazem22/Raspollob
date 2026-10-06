@@ -1,0 +1,29 @@
+# ── Secrets (never commit) ─────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+
+# ── Frontend build output ──────────────────────────
+gui/node_modules/
+.next/
+gui/out/
+gui/coverage/
+gui/tsconfig.tsbuildinfo
+gui/next-env.d.ts
+
+# ── Backend build output ───────────────────────────
+server/target/
+
+# ── Files uploaded through the admin panel ─────────
+server/uploads/
+
+# ── Editors / OS ───────────────────────────────────
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# ── Local exports ──────────────────────────────────
+*.pdf

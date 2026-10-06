@@ -1,0 +1,182 @@
+name: CI/CD
+
+# develop → checks, then deploy to STAGING
+# main    → checks, then deploy to PRODUCTION
+# Pull requests into either branch → checks only
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # New pushes cancel an older check run, but never a deploy that's already releasing
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend · build & test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    # Tests start the full app, so they get their own throwaway database
+    # (never the real one)
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: raspollob_test
+          POSTGRES_USER: raspollob
+          POSTGRES_PASSWORD: raspollob
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U raspollob"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/raspollob_test
+      DB_USERNAME: raspollob
+      DB_PASSWORD: raspollob
+      # Test-only key; production keys live in the VPS .env files
+      JWT_SECRET: 2cm84H1pf63U0YWJ85ZivMrgTIVFD0u6ijZMd7gLP5MuSi2uZtxqRgBszpW7Sx69
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build and run tests
+        run: chmod +x mvnw && ./mvnw -B verify
+
+  frontend:
+    name: Frontend · type-check & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+      - run: npm ci
+      # The build generates next-env.d.ts, which the type-check needs
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ""
+          NEXT_TELEMETRY_DISABLED: "1"
+      - name: Type-check
+        run: npx tsc --noEmit
+
+  deploy:
+    name: Deploy · ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop')
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      url: ${{ vars.APP_URL }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      APP_ENV: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Image owner (registry names must be lower-case)
+        run: echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: server
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER }}/raspollob-server:${{ github.sha }}
+            ghcr.io/${{ env.OWNER }}/raspollob-server:${{ github.ref_name }}
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,mode=max,scope=server
+
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: gui
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=
+          tags: |
+            ghcr.io/${{ env.OWNER }}/raspollob-gui:${{ github.sha }}
+            ghcr.io/${{ env.OWNER }}/raspollob-gui:${{ github.ref_name }}
+          cache-from: type=gha,scope=gui
+          cache-to: type=gha,mode=max,scope=gui
+
+      - name: Copy compose file to the VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: deploy/docker-compose.yml
+          target: /opt/raspollob/${{ env.APP_ENV }}
+          strip_components: 1
+
+      - name: Release on the VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_ENV: ${{ env.APP_ENV }}
+          IMAGE_TAG: ${{ github.sha }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          envs: APP_ENV,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
+          command_timeout: 10m
+          script: |
+            set -e
+            cd "/opt/raspollob/$APP_ENV"
+
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            export IMAGE_TAG
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker logout ghcr.io
+            docker image prune -f
+
+            # Wait until the new release answers (Spring Boot takes ~30s to start)
+            GUI_PORT=$(grep -E '^GUI_PORT=' .env | cut -d= -f2)
+            SERVER_PORT=$(grep -E '^SERVER_PORT=' .env | cut -d= -f2)
+            for i in $(seq 1 36); do
+              if curl -fsS "http://127.0.0.1:$SERVER_PORT/api/v1/config/store" > /dev/null \
+                && curl -fsS "http://127.0.0.1:$GUI_PORT/" > /dev/null; then
+                echo "Release $IMAGE_TAG is live on $APP_ENV"
+                exit 0
+              fi
+              sleep 5
+            done
+
+            echo "The new release did not respond within 3 minutes"
+            docker compose ps
+            docker compose logs --tail=100 server
+            exit 1

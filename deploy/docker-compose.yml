@@ -1,0 +1,38 @@
+# One stack per environment on the VPS:
+#   /opt/raspollob/production  (APP_ENV=production, branch main)
+#   /opt/raspollob/staging     (APP_ENV=staging,    branch develop)
+# Each folder holds a copy of this file plus its own .env (see env.example).
+# GitHub Actions copies this file and runs `docker compose pull && docker compose up -d` on every deploy.
+
+name: raspollob-${APP_ENV}
+
+services:
+  server:
+    image: ghcr.io/${IMAGE_OWNER}/raspollob-server:${IMAGE_TAG}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      # Product photos survive every deploy
+      - uploads:/app/uploads
+    ports:
+      # Only reachable from the VPS itself; Nginx is the public entrance
+      - "127.0.0.1:${SERVER_PORT}:8085"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  gui:
+    image: ghcr.io/${IMAGE_OWNER}/raspollob-gui:${IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "127.0.0.1:${GUI_PORT}:3000"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+volumes:
+  uploads:
