@@ -48,7 +48,7 @@ flowchart LR
     U[Customer / Staff<br/>browser] -->|HTTPS| N[Nginx<br/>on the VPS]
     N -->|/api, /uploads| S[Spring Boot server<br/>Java 21]
     N -->|all other pages| G[Next.js frontend<br/>React 19]
-    S --> D[(PostgreSQL<br/>Neon)]
+    S --> D[(PostgreSQL<br/>on the VPS)]
     S --> F[[Uploaded photos<br/>Docker volume]]
 ```
 
@@ -56,7 +56,7 @@ flowchart LR
 |---|---|---|
 | Frontend (store + admin panel) | Next.js 16, React 19, Tailwind CSS 4 | `gui/` |
 | Backend API | Spring Boot 4, Java 21, Spring Security (JWT) | `server/` |
-| Database | PostgreSQL (Neon) | — |
+| Database | PostgreSQL 16 (Docker, on the VPS) | `deploy/` |
 | Hosting | One VPS: Docker + Nginx | `deploy/` |
 | CI/CD | GitHub Actions + GitHub Container Registry | `.github/workflows/` |
 
@@ -198,42 +198,72 @@ Product photos live in a Docker volume, so they are kept on every deploy.
 
 ## One-time deployment setup
 
-Do these steps once. Afterwards everything is automatic.
+Do this once, in order. It takes about 30 minutes. Afterwards every update goes live automatically.
 
-### Step 1: Push the code to GitHub
+**What runs on the VPS:** for each site (live, and optionally staging) there are three Docker containers: the **database** (PostgreSQL), the **server** (Spring Boot) and the **website** (Next.js). Nginx in front gives them your domain and HTTPS.
 
-```bash
-git remote add origin https://github.com/HasanKazem22/Raspollob.git
-git push -u origin main
-git push -u origin develop
+```mermaid
+flowchart LR
+    U[Visitors] -->|https://your-domain.com| N[Nginx + HTTPS]
+    N --> G[Website<br/>container]
+    N -->|/api, /uploads| S[Server<br/>container]
+    S --> D[(Database<br/>container)]
+    S --> P[[Photos volume]]
+    D -.nightly.-> B[(Backups<br/>14 days)]
 ```
 
-Then protect `main` so only checked code can reach the live site.
+**VPS size:** Ubuntu 22.04 or 24.04 with **2 GB RAM** (2 vCPU recommended) for the live site only, or **4 GB** if you also run staging. 25 GB+ disk.
+
+### Step 1: Point your domain at the VPS
+
+At your domain provider (DNS settings), add **A records** with your VPS IP address:
+
+| Name | Type | Value |
+|---|---|---|
+| `@` (your-domain.com) | A | VPS IP |
+| `www` | A | VPS IP |
+| `staging` | A | VPS IP (only if you use staging) |
+
+DNS can take from a few minutes to a few hours to update. Do this first so it's ready by step 3.
+
+### Step 2: Protect the `main` branch on GitHub
+
 **GitHub → Settings → Branches → Add branch ruleset** for `main`:
 - ✅ Require a pull request before merging
 - ✅ Require status checks to pass: *Backend · build & test* and *Frontend · type-check & build*
 
-### Step 2: Prepare the VPS (Ubuntu 22.04 / 24.04)
+Now only tested code can reach the live site.
 
-Log in to the VPS and run:
+### Step 3: Set up the VPS (one command)
+
+From **your computer**, copy the `deploy` folder to the VPS, then log in:
 
 ```bash
-# Docker
-curl -fsSL https://get.docker.com | sudo sh
-
-# A user that GitHub uses to deploy
-sudo adduser --disabled-password --gecos "" deploy
-sudo usermod -aG docker deploy
-
-# Folders for the live and staging sites
-sudo mkdir -p /opt/raspollob/production /opt/raspollob/staging
-sudo chown -R deploy:deploy /opt/raspollob
-
-# Web server and free HTTPS certificates
-sudo apt update && sudo apt install -y nginx certbot python3-certbot-nginx
+scp -r deploy root@<vps-ip>:/root/raspollob-deploy
+ssh root@<vps-ip>
 ```
 
-### Step 3: Create a deploy key
+On the VPS, run the setup script with your details:
+
+```bash
+cd /root/raspollob-deploy
+bash setup-vps.sh --domain your-domain.com --email you@example.com --owner hasankazem22
+# add --staging to also create staging.your-domain.com
+```
+
+The script:
+- installs **Docker**, **Nginx** and a **free HTTPS certificate** (renews automatically)
+- turns on the **firewall** (only SSH, HTTP and HTTPS open), **fail2ban** (blocks password guessing) and **automatic security updates**
+- adds **swap** memory so the server stays stable on small VPS plans
+- creates the **`deploy`** user that GitHub Actions signs in as
+- creates `/opt/raspollob/production` with a settings file (`.env`) containing **strong random passwords** for the database and logins
+- schedules **nightly backups** at 03:30
+
+It's safe to run again: existing passwords and data are never replaced.
+
+> If HTTPS fails because DNS isn't ready yet, wait a little and run the `certbot` command the script prints.
+
+### Step 4: Create a deploy key
 
 On **your computer**:
 
@@ -241,16 +271,13 @@ On **your computer**:
 ssh-keygen -t ed25519 -f raspollob-deploy -C "github-actions" -N ""
 ```
 
-This creates two files:
-- `raspollob-deploy.pub` (public key): add it on the VPS:
+- Copy the **public** key (`raspollob-deploy.pub`) into the VPS:
   ```bash
-  sudo mkdir -p /home/deploy/.ssh
-  sudo nano /home/deploy/.ssh/authorized_keys      # paste the .pub contents
-  sudo chown -R deploy:deploy /home/deploy/.ssh && sudo chmod 700 /home/deploy/.ssh && sudo chmod 600 /home/deploy/.ssh/authorized_keys
+  ssh root@<vps-ip> "cat >> /home/deploy/.ssh/authorized_keys" < raspollob-deploy.pub
   ```
-- `raspollob-deploy` (private key): goes into GitHub in the next step. Delete both files from your computer afterwards.
+- The **private** key (`raspollob-deploy`) goes into GitHub in the next step. Delete both files from your computer afterwards.
 
-### Step 4: Add the secrets in GitHub
+### Step 5: Add the secrets in GitHub
 
 **GitHub → Settings → Secrets and variables → Actions**
 
@@ -263,65 +290,58 @@ This creates two files:
 | `VPS_SSH_KEY` | The full contents of the private key file `raspollob-deploy` |
 | `VPS_PORT` | Only if SSH isn't on port 22 |
 
-*Variables* tab → **New repository variable**:
+*Variables* tab → **New repository variable**: `DEPLOY_ENABLED` = `true`
 
-| Name | Value |
-|---|---|
-| `DEPLOY_ENABLED` | `true` (switches on automatic deploys; set it after steps 5–6) |
+**GitHub → Settings → Environments:** create `production` (and `staging` if used) with a variable `APP_URL`, for example `https://your-domain.com`.
 
-**GitHub → Settings → Environments:** create `production` and `staging`. In each, add a variable `APP_URL` with the site address. Optional: under `production`, add yourself as a *required reviewer* to approve each live release with one click.
+### Step 6: First release
 
-### Step 5: Server settings on the VPS
+Open **GitHub → Actions → CI/CD → Run workflow** on `main` (or push to `main`). After about 5–10 minutes it turns green and the site is live.
 
-Create one settings file per site from the template in `deploy/env.example`:
+On first start the server **creates all database tables** and the roles, plus one admin account:
+
+1. Open `https://your-domain.com/admin` and sign in as **admin / admin123**.
+2. **Change this password immediately** (Profile → Password).
+3. Add your logo, colours, categories, products and payment numbers in the admin panel.
+
+---
+
+## Updating the live site (day to day)
+
+Everything below happens from your computer and GitHub. You don't need to log in to the VPS.
+
+```mermaid
+flowchart LR
+    A[Change code] --> B[Push to develop]
+    B --> C{Checks pass?}
+    C -- no --> A
+    C -- yes --> D[Staging updates*]
+    D --> E[Pull request<br/>develop → main]
+    E --> F[Merge]
+    F --> G[Live site updates<br/>in ~5–10 min]
+```
+<sub>*only if you set up staging</sub>
 
 ```bash
-nano /opt/raspollob/production/.env
-nano /opt/raspollob/staging/.env
-chmod 600 /opt/raspollob/*/.env
+git checkout develop
+git pull
+# ...make your changes...
+git add -A
+git commit -m "Describe the change"
+git push
 ```
 
-| Setting | Production | Staging |
-|---|---|---|
-| `APP_ENV` | `production` | `staging` |
-| `IMAGE_OWNER` | `hasankazem22` | `hasankazem22` |
-| `IMAGE_TAG` | `main` | `develop` |
-| `GUI_PORT` / `SERVER_PORT` | `3000` / `8085` | `3001` / `8086` |
-| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | Live database | **A separate database** (in Neon: create a branch called `staging`) |
-| `JWT_SECRET` | New value: `openssl rand -base64 48` | A different new value |
-| `FRONTEND_URL` | `https://your-domain.com` | `https://staging.your-domain.com` |
+Then on GitHub: **Pull requests → New → `develop` → `main` → Create → Merge** once the checks are green. That's the whole release.
 
-### Step 6: Domain, Nginx and HTTPS
-
-1. At your domain provider, point `your-domain.com`, `www` and `staging` to the VPS IP address (A records).
-2. In `deploy/nginx/raspollob.conf`, replace `raspollob.com` with your domain. Then copy both Nginx files from **your computer** to the VPS:
-
-```bash
-scp deploy/nginx/raspollob.conf deploy/nginx/raspollob-proxy.conf <your-user>@<vps-ip>:/tmp/
-```
-
-3. On the VPS:
-
-```bash
-cd /tmp
-sudo cp raspollob-proxy.conf /etc/nginx/snippets/
-sudo cp raspollob.conf /etc/nginx/sites-available/
-sudo ln -s /etc/nginx/sites-available/raspollob.conf /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-
-# Free HTTPS (renews automatically)
-sudo certbot --nginx -d your-domain.com -d www.your-domain.com -d staging.your-domain.com
-```
-
-### Step 7: First release
-
-Set `DEPLOY_ENABLED` to `true` (step 4), then push to `develop`, or open **GitHub → Actions → CI/CD → Run workflow**. Watch it go green, then open your staging site. Merge `develop` into `main` to publish the live site.
+- **Database changes are automatic.** New columns or tables are added when the new server starts. Existing data is never deleted.
+- **No downtime to plan.** The new version starts and the pipeline only reports success once the site answers. If it doesn't start, the run turns red and shows the error.
+- **Shop content** (products, prices, banners, offers, colours) is changed in the admin panel, not in code. That needs no deploy at all.
 
 ---
 
 ## Running the live server
 
-All commands run on the VPS.
+All commands run on the VPS (`ssh root@<vps-ip>`).
 
 ```bash
 cd /opt/raspollob/production          # or /opt/raspollob/staging
@@ -332,7 +352,19 @@ docker compose logs -f gui            # live frontend logs
 docker compose restart server         # restart the backend
 ```
 
-**Roll back to an earlier version.** Every release is tagged with its commit id (find it on GitHub under *Commits*):
+**Backups** (database + photos, every night at 03:30, last 14 days kept):
+
+```bash
+ls /opt/raspollob/backups/production                       # list backups
+/opt/raspollob/backup.sh production                        # make one now (e.g. before a big change)
+/opt/raspollob/restore.sh production 2026-10-07_0330       # restore one (asks for confirmation)
+tail /var/log/raspollob-backup.log                         # did last night's backup work?
+```
+
+> **Keep a copy off the server.** Backups on the VPS don't help if the VPS itself is lost. Once a week, download the newest backup folder to your computer or cloud storage:
+> `scp -r root@<vps-ip>:/opt/raspollob/backups/production/<latest> ./raspollob-backups/`
+
+**Roll back to an earlier version.** Every release is tagged with its full commit id (on GitHub: *Commits* → copy the full SHA):
 
 ```bash
 cd /opt/raspollob/production
@@ -341,7 +373,7 @@ IMAGE_TAG=<commit-id> docker compose up -d
 
 The next normal deploy moves you forward again.
 
-**Change a setting** (e.g. a password): edit `.env` in the site's folder, then `docker compose up -d`.
+**Change a setting:** edit `.env` in the site's folder, then `docker compose up -d`. Don't change `POSTGRES_PASSWORD` after the first start: the database keeps its original password.
 
 ---
 
@@ -350,18 +382,22 @@ The next normal deploy moves you forward again.
 | Problem | What to check |
 |---|---|
 | Pipeline red at **Backend checks** | Open the run on GitHub → the failing test is listed. Fix it on `develop` and push again. |
-| Pipeline red at **Deploy** | The log ends with the server's own logs. Usually a wrong value in the VPS `.env` (database or `JWT_SECRET`). |
-| Deploy skipped | `DEPLOY_ENABLED` isn't set to `true` (step 4). |
+| Pipeline red at **Deploy** | The log ends with the server's own logs. Usually a wrong value in the VPS `.env`. |
+| Deploy skipped | `DEPLOY_ENABLED` isn't set to `true` (step 5). |
 | `permission denied (publickey)` | The public key isn't in `/home/deploy/.ssh/authorized_keys`, or `VPS_SSH_KEY` is incomplete. |
 | Site shows *502 Bad Gateway* | Containers aren't running: `docker compose ps` and `docker compose logs server`. |
-| Photos won't upload | Nginx `client_max_body_size` must be `30M` (already in `raspollob.conf`). |
+| Server can't reach the database | `docker compose ps db` should say *healthy*; check `docker compose logs db`. |
+| HTTPS certificate error | DNS must point at the VPS first; then run the `certbot` command again. |
+| Disk getting full | `df -h` and `docker system df`; old images are removed on each deploy, backups after 14 days. |
+| Photos won't upload | Nginx `client_max_body_size` must be `30M` (set by the setup script). |
 
 ---
 
 ## Security checklist
 
-- [ ] No passwords in the repository: they live in `.env` files, which are git-ignored
-- [ ] Change the default admin password (`admin123`) before going live
-- [ ] Use different `JWT_SECRET` values and databases for staging and production
+- [ ] No passwords in the repository: they live in `.env` files on the VPS, which are git-ignored
+- [ ] Change the default admin password (`admin123`) right after the first release
+- [ ] The database has no public port; only the server container can reach it
+- [ ] Firewall on (SSH, HTTP, HTTPS only), fail2ban and automatic security updates enabled (setup script)
 - [ ] Keep `main` protected so only checked code reaches the live site
-- [ ] Keep the VPS updated: `sudo apt update && sudo apt upgrade`
+- [ ] Copy a backup off the server every week
