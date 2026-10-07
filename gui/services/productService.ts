@@ -1,14 +1,27 @@
 import { apiFetch, ApiResponse, Page } from "@/lib/api";
 import { Product } from "@/types/product";
 
+/** Sort fields the public catalogue accepts ("price" = what the customer pays). */
+export type ProductSortField = "createdAt" | "price" | "name" | "rating";
+
 export const productService = {
   /** Fetch public products with search, category and pagination */
-  async getProducts(query?: string, categoryId?: number | string, page = 0, size = 12): Promise<ApiResponse<Page<Product>>> {
+  async getProducts(
+    query?: string,
+    categoryId?: number | string,
+    page = 0,
+    size = 12,
+    sort?: { sortBy: ProductSortField; sortDir: "ASC" | "DESC" }
+  ): Promise<ApiResponse<Page<Product>>> {
     const params = new URLSearchParams();
     if (query) params.append("query", query);
     if (categoryId) params.append("categoryId", String(categoryId));
     params.append("page", String(page));
     params.append("size", String(size));
+    if (sort) {
+      params.append("sortBy", sort.sortBy);
+      params.append("sortDir", sort.sortDir);
+    }
 
     const queryString = params.toString();
     return apiFetch(`/products${queryString ? `?${queryString}` : ""}`, {

@@ -10,8 +10,12 @@ export interface CustomerReview {
 export interface StoreConfig {
   id?: number;
   storeLogo?: string;
+  /** Brand colour "#RRGGBB" for the whole site (design token --brand); empty = default green */
   primaryColor?: string;
+  /** No longer used: the site has one brand colour */
   secondaryColor?: string;
+  /** Text under the logo in the site footer */
+  footerDescription?: string | null;
   heroBannerImages: string[];
   promoBannerImage: string;
   categorySectionTitle: string;
@@ -51,6 +55,21 @@ export interface StoreConfig {
   nagadNumber?: string;
   rocketNumber?: string;
   paymentInstructions?: string;
+
+  // Welcome offer popup
+  offerEnabled?: boolean;
+  offerImage?: string | null;
+  offerTitle?: string | null;
+  offerText?: string | null;
+  offerPromoCode?: string | null;
+  offerButtonText?: string | null;
+  /** Same-site path ("/category/honey") or https:// URL */
+  offerButtonLink?: string | null;
+  /** "YYYY-MM-DDTHH:mm" store-local time; empty = no limit */
+  offerStartsAt?: string | null;
+  offerEndsAt?: string | null;
+  /** Worked out by the server: enabled, has an image, and inside its dates */
+  offerActive?: boolean;
 }
 
 export interface FaqItem {

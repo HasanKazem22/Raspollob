@@ -41,7 +41,7 @@ function ReviewCard({ review }: { review: CustomerReview }) {
                 className="w-10 h-10 rounded-full object-cover shrink-0"
               />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-[#5c8b29]/10 text-[#5c8b29] flex items-center justify-center text-xs font-bold shrink-0">
+              <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center text-xs font-bold shrink-0">
                 {initials}
               </div>
             )}
@@ -119,7 +119,7 @@ export function CustomerReviews() {
     <HomeSection
       title="What Our Customers Say" 
       description="Real reviews from real people who love our pure, organic products."
-      className="py-16 bg-[#FDFBF9] relative group"
+      className="py-16 bg-background relative group"
     >
         {/* Scrollable Review Cards */}
         <div 
@@ -140,8 +140,8 @@ export function CustomerReviews() {
               onClick={() => scrollToCard(idx)}
               className={`h-2.5 rounded-full transition-all duration-300 ${
                 idx === activeIndex 
-                  ? "bg-[#5c8b29] w-6" 
-                  : "bg-transparent border border-[#5c8b29] w-2.5"
+                  ? "bg-brand w-6" 
+                  : "bg-transparent border border-brand w-2.5"
               }`}
               aria-label={`Go to slide ${idx + 1}`}
             />

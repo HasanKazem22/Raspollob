@@ -115,7 +115,7 @@ function ActionCheckboxes({
             checked={value.actions[a.key]}
             disabled={readOnly}
             onChange={(e) => onToggleAction(keys, a.key, e.target.checked)}
-            className="w-4 h-4 accent-[#5c8b29] cursor-pointer disabled:cursor-default"
+            className="w-4 h-4 accent-brand cursor-pointer disabled:cursor-default"
           />
           {a.label}
         </label>
@@ -146,7 +146,7 @@ function ModuleRow({
     <li className="px-4 sm:px-5 py-4">
       <div className="flex items-center gap-3">
         <Icon
-          className={cn("w-[18px] h-[18px] shrink-0", value.isAccess ? "text-[#5c8b29]" : "text-zinc-400")}
+          className={cn("w-[18px] h-[18px] shrink-0", value.isAccess ? "text-brand" : "text-zinc-400")}
           aria-hidden
         />
         <div className="min-w-0 flex-1">

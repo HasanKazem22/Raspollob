@@ -2,34 +2,38 @@ export interface RoleItem {
   id: number;
   name: string;
   description?: string;
+  /** ADMIN, MANAGER, CUSTOMER, GUEST: can't be renamed or deleted */
+  builtIn?: boolean;
+  /** Can be picked for a staff account (false for CUSTOMER and GUEST) */
+  staffAssignable?: boolean;
   createdAt?: string;
-  updatedAt?: string;
 }
 
-export interface SystemUserItem {
+/** A role as listed on an account */
+export interface RoleRef {
+  id: number;
+  name: string;
+}
+
+/** An account from GET /admin/users (never includes the password) */
+interface AdminUser {
   id: number;
   fullName?: string;
   username: string;
   email?: string;
   mobile?: string;
-  isActive: boolean;
-  createdAt?: string;
-  roles?: RoleItem[];
-}
-
-export interface CustomerUserItem {
-  id: number;
-  fullName?: string;
-  username: string;
-  email?: string;
-  mobile?: string;
-  address?: string;
   city?: string;
-  postalCode?: string;
+  address?: string;
   isActive: boolean;
+  /** True for staff accounts (any role other than Customer) */
+  staff?: boolean;
   createdAt?: string;
-  roles?: RoleItem[];
+  roles?: RoleRef[];
 }
+
+export type SystemUserItem = AdminUser;
+
+export type CustomerUserItem = AdminUser;
 
 export interface AdminUserForm {
   fullName: string;
@@ -47,7 +51,6 @@ export interface CustomerUserForm {
   mobile: string;
   address?: string;
   city?: string;
-  postalCode?: string;
   password?: string;
 }
 

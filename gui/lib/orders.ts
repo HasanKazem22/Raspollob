@@ -35,7 +35,7 @@ export const ORDER_STATUS_STYLE: Record<OrderStatus, string> = {
   CONFIRMED: "bg-sky-500/10 text-sky-700 border-sky-500/20",
   PROCESSING: "bg-indigo-500/10 text-indigo-700 border-indigo-500/20",
   SHIPPED: "bg-violet-500/10 text-violet-700 border-violet-500/20",
-  DELIVERED: "bg-[#5c8b29]/10 text-[#4a7021] border-[#5c8b29]/20",
+  DELIVERED: "bg-brand/10 text-brand-strong border-brand/20",
   CANCELLED: "bg-red-500/10 text-red-700 border-red-500/20",
   RETURNED: "bg-zinc-500/10 text-zinc-700 border-zinc-500/20",
 };
@@ -54,7 +54,7 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
 export const PAYMENT_STATUS_STYLE: Record<PaymentStatus, string> = {
   UNPAID: "bg-zinc-500/10 text-zinc-700 border-zinc-500/20",
   PENDING_VERIFICATION: "bg-amber-500/10 text-amber-700 border-amber-500/20",
-  PAID: "bg-[#5c8b29]/10 text-[#4a7021] border-[#5c8b29]/20",
+  PAID: "bg-brand/10 text-brand-strong border-brand/20",
   FAILED: "bg-red-500/10 text-red-700 border-red-500/20",
   REFUNDED: "bg-sky-500/10 text-sky-700 border-sky-500/20",
 };
@@ -75,7 +75,16 @@ export function formatAddressLines(a: { addressLine: string; area?: string; city
   return [a.addressLine, [a.area, a.city].filter(Boolean).join(", ") + (a.postalCode ? ` - ${a.postalCode}` : "")];
 }
 
-/** Opens the printable delivery slip for an order in a new tab. */
+/** Most delivery slips printed in one go (same limit as the server). */
+export const MAX_SLIPS_PER_PRINT = 50;
+
+/** Opens the delivery slips for one or more orders in a new tab, ready to print (A6, one per page). */
+export function openPrintSlips(orderIds: number[]) {
+  if (orderIds.length === 0) return;
+  window.open(`/print/orders?ids=${orderIds.slice(0, MAX_SLIPS_PER_PRINT).join(",")}`, "_blank", "noopener");
+}
+
+/** Opens one order's delivery slip in a new tab. */
 export function openPrintSlip(orderId: number) {
-  window.open(`/print/order/${orderId}`, "_blank", "noopener");
+  openPrintSlips([orderId]);
 }

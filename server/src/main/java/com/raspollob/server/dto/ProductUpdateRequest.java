@@ -28,6 +28,9 @@ public class ProductUpdateRequest {
     @Size(max = 40, message = "Size can be at most 40 characters")
     private String sizeLabel;
 
+    /** "Same product as": id of a product to link sizes with, 0 to unlink, null to leave as it is */
+    private Long sizeOf;
+
     private String description;
 
     private String details;

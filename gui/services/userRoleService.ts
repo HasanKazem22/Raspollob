@@ -17,11 +17,10 @@ const unwrap = (res: any) => {
   return res && res.success !== undefined ? res.data : res;
 };
 
-// System users and customers share the same /admin/users endpoints;
-// they are only told apart by role on the client.
-const fetchAllUsers = async (): Promise<any[]> => {
-  const res = await apiFetch("/admin/users").then(unwrap);
-  return Array.isArray(res) ? res : res?.content || [];
+/** Staff or customer accounts; the server decides which is which (one rule, see PermissionCatalog.isStaff). */
+const fetchUsers = async <T,>(type: "staff" | "customer"): Promise<T[]> => {
+  const res = await apiFetch(`/admin/users?type=${type}`).then(unwrap);
+  return Array.isArray(res) ? res : [];
 };
 
 const updateUser = async (id: number, form: AdminUserForm | CustomerUserForm) =>
@@ -43,12 +42,7 @@ const deleteUser = async (id: number): Promise<void> =>
 
 export const userRoleService = {
   // --- System Users ---
-  getSystemUsers: async (): Promise<SystemUserItem[]> => {
-    const list = await fetchAllUsers();
-    return list.filter((u: SystemUserItem) =>
-      u.roles?.some((r) => r.name !== "CUSTOMER") || u.roles?.length === 0
-    );
-  },
+  getSystemUsers: (): Promise<SystemUserItem[]> => fetchUsers<SystemUserItem>("staff"),
 
   createSystemUser: async (form: AdminUserForm): Promise<SystemUserItem> => {
     return apiFetch("/admin/users", {
@@ -62,12 +56,7 @@ export const userRoleService = {
   deleteSystemUser: deleteUser,
 
   // --- Customers ---
-  getCustomers: async (): Promise<CustomerUserItem[]> => {
-    const list = await fetchAllUsers();
-    return list.filter((u: CustomerUserItem) =>
-      u.roles?.some((r) => r.name === "CUSTOMER")
-    );
-  },
+  getCustomers: (): Promise<CustomerUserItem[]> => fetchUsers<CustomerUserItem>("customer"),
 
   updateCustomer: (id: number, form: CustomerUserForm): Promise<CustomerUserItem> => updateUser(id, form),
   toggleCustomerStatus: (id: number, isActive: boolean): Promise<CustomerUserItem> => setUserStatus(id, isActive),

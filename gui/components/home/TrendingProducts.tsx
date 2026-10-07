@@ -23,7 +23,7 @@ export function TrendingProducts() {
         config?.trendingSectionDesc ||
         "Our most popular pure, organic honey and cold-pressed items loved by customers."
       }
-      className="py-16 bg-[#FDFBF9]"
+      className="py-16 bg-background"
     >
       <ProductGrid status={status} products={products} size={HOME_SECTION_SIZE.trending} />
     </HomeSection>

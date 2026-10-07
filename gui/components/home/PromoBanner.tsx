@@ -15,7 +15,7 @@ export function PromoBanner() {
   if (status !== "loading" && !(status === "success" && image)) return null;
 
   return (
-    <section className="py-6 bg-[#FDFBF9]">
+    <section className="py-6 bg-background">
       <div className="container mx-auto px-4 lg:px-8 xl:px-12 max-w-7xl">
         {status === "loading" && <Skeleton className={SIZE} />}
 

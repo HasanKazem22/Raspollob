@@ -3,6 +3,7 @@ package com.raspollob.server.service;
 import com.raspollob.server.dto.CategoryRequest;
 import com.raspollob.server.dto.CategoryResponse;
 import com.raspollob.server.entity.Category;
+import com.raspollob.server.exception.ResourceNotFoundException;
 import com.raspollob.server.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,7 @@ import java.util.stream.Collectors;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
-    private final FileStorageService fileStorageService;
+    private final MediaCleanupService mediaCleanup;
 
     private static final Pattern NONLATIN = Pattern.compile("[^\\w-]");
     private static final Pattern WHITESPACE = Pattern.compile("[\\s]");
@@ -47,7 +48,7 @@ public class CategoryService {
 
     @Transactional(readOnly = true)
     public List<CategoryResponse> getAllAdminCategories() {
-        return categoryRepository.findAllByOrderByDisplayOrderAscNameAsc().stream()
+        return categoryRepository.findAllByOrderByCreatedAtDescIdDesc().stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -55,14 +56,17 @@ public class CategoryService {
     @Transactional(readOnly = true)
     public CategoryResponse getCategoryById(Long id) {
         Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Category not found with ID: " + id));
+                .filter(c -> Boolean.TRUE.equals(c.getIsActive()))
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + id));
         return mapToResponse(category);
     }
 
+    /** Public category page: hidden (inactive) categories are treated as not found. */
     @Transactional(readOnly = true)
     public CategoryResponse getCategoryBySlug(String slug) {
         Category category = categoryRepository.findBySlug(slug)
-                .orElseThrow(() -> new RuntimeException("Category not found with slug: " + slug));
+                .filter(c -> Boolean.TRUE.equals(c.getIsActive()))
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with slug: " + slug));
         return mapToResponse(category);
     }
 
@@ -124,7 +128,7 @@ public class CategoryService {
             String nextImage = request.getImageUrl().isBlank() ? null : request.getImageUrl().trim();
             String previousImage = category.getImageUrl();
             if (previousImage != null && !previousImage.equals(nextImage)) {
-                fileStorageService.deleteFilesAfterCommit(List.of(previousImage));
+                mediaCleanup.deleteIfUnused(List.of(previousImage));
             }
             category.setImageUrl(nextImage);
         }
@@ -164,7 +168,7 @@ public class CategoryService {
 
         categoryRepository.delete(category);
         if (category.getImageUrl() != null) {
-            fileStorageService.deleteFilesAfterCommit(List.of(category.getImageUrl()));
+            mediaCleanup.deleteIfUnused(List.of(category.getImageUrl()));
         }
     }
 

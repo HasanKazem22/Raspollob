@@ -35,7 +35,6 @@ export function CustomerUsersTab() {
     mobile: "",
     address: "",
     city: "",
-    postalCode: "",
     password: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,7 +67,6 @@ export function CustomerUsersTab() {
       mobile: customer.mobile || "",
       address: customer.address || "",
       city: customer.city || "",
-      postalCode: customer.postalCode || "",
       password: "",
     });
   };
@@ -146,7 +144,7 @@ export function CustomerUsersTab() {
         <div className="text-zinc-600 dark:text-zinc-300">
           <div className="flex items-center gap-1">
             <LuMapPin className="w-3 h-3 text-zinc-400" />
-            <span>{customer.city ? `${customer.city}, ${customer.postalCode || ""}` : "N/A"}</span>
+            <span>{customer.city || "N/A"}</span>
           </div>
           {customer.address && <div className="text-[11px] text-zinc-400 truncate max-w-xs">{customer.address}</div>}
         </div>
@@ -254,22 +252,13 @@ export function CustomerUsersTab() {
             </FormField>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="City / Region">
-              <Input
-                placeholder="e.g. Dhaka"
-                value={customerForm.city}
-                onChange={(e) => setCustomerForm({ ...customerForm, city: e.target.value })}
-              />
-            </FormField>
-            <FormField label="Postal Code">
-              <Input
-                placeholder="1205"
-                value={customerForm.postalCode}
-                onChange={(e) => setCustomerForm({ ...customerForm, postalCode: e.target.value })}
-              />
-            </FormField>
-          </div>
+          <FormField label="City / Region">
+            <Input
+              placeholder="e.g. Dhaka"
+              value={customerForm.city}
+              onChange={(e) => setCustomerForm({ ...customerForm, city: e.target.value })}
+            />
+          </FormField>
 
           <FormField label="Shipping Address">
             <Input

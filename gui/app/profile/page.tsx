@@ -1,22 +1,26 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
+import { useState } from "react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { BD_PHONE_ERROR, isValidBdPhone } from "@/lib/phone";
 import { Button } from "@/components/ui/button";
-import { Tooltip } from "@/components/ui/tooltip";
+import { ImageInput } from "@/components/ui/image-input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { accountService } from "@/services/accountService";
+import { MyOrders } from "@/components/orders/MyOrders";
+import { SegmentedTabs } from "@/components/ui/tabs";
 import {
-  LuUser, LuKey, LuSparkles, LuCheck, LuLock, LuMail, LuPhone, LuMapPin, LuCircleCheck, LuCamera, LuLoader
+  LuUser, LuKey, LuShoppingBag, LuLock, LuMail, LuPhone, LuMapPin
 } from "react-icons/lu";
 
 export default function ProfilePage() {
-  const { user, roles, updateUser } = useAuth();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const { user, roles, applyAccount } = useAuth();
+  const [confirmRemovePhoto, setConfirmRemovePhoto] = useState(false);
+  const [activeTab, setActiveTab] = useState<"profile" | "security" | "orders">("profile");
+  const [isRemovingPhoto, setIsRemovingPhoto] = useState(false);
 
   // Profile Form State
   const [fullName, setFullName] = useState("");
@@ -32,15 +36,20 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      setFullName(user.fullName || user.username || "");
-      setEmail(user.email || "");
-      setMobile(user.mobile || "");
-      setCity(user.city || "");
-      setAddress(user.address || "");
-    }
-  }, [user]);
+  // Refill the form only when the saved profile details change (not on a photo change),
+  // so unsaved edits survive uploading a photo
+  const savedProfile = user
+    ? JSON.stringify([user.fullName || user.username, user.email, user.mobile, user.city, user.address])
+    : "";
+  const [filledFrom, setFilledFrom] = useState("");
+  if (user && savedProfile !== filledFrom) {
+    setFilledFrom(savedProfile);
+    setFullName(user.fullName || user.username || "");
+    setEmail(user.email || "");
+    setMobile(user.mobile || "");
+    setCity(user.city || "");
+    setAddress(user.address || "");
+  }
 
   if (!user) {
     return (
@@ -58,51 +67,52 @@ export default function ProfilePage() {
 
   const displayName = fullName || user.username;
   const initial = displayName.charAt(0).toUpperCase();
-  const avatarUrl = user.avatarUrl || user.avatar;
+  const avatarUrl = user.avatarUrl || "";
 
-  const handleAvatarClick = () => {
-    fileInputRef.current?.click();
+  /** Uploads to the server (resized there) and returns the stored URL for the preview. */
+  const handleAvatarUpload = async (file: File) => {
+    const account = await accountService.uploadAvatar(file);
+    applyAccount(account);
+    toast.success("Profile photo updated");
+    return account.avatarUrl ?? "";
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select a valid image file (PNG, JPG, WEBP).");
-      return;
+  const handleRemovePhoto = async () => {
+    setIsRemovingPhoto(true);
+    try {
+      applyAccount(await accountService.removeAvatar());
+      toast.success("Profile photo removed");
+      setConfirmRemovePhoto(false);
+    } catch (err: any) {
+      toast.error(err?.message || "Couldn't remove the photo. Please try again.");
+    } finally {
+      setIsRemovingPhoto(false);
     }
-
-    setIsUploadingAvatar(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
-        updateUser({ avatarUrl: dataUrl, avatar: dataUrl });
-        toast.success("Profile picture updated successfully!");
-      }
-      setIsUploadingAvatar(false);
-    };
-    reader.onerror = () => {
-      toast.error("Failed to read image file.");
-      setIsUploadingAvatar(false);
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (mobile && !isValidBdPhone(mobile)) {
+    if (!fullName.trim()) {
+      toast.error("Please enter your full name.");
+      return;
+    }
+    if (!isValidBdPhone(mobile)) {
       toast.error(BD_PHONE_ERROR);
       return;
     }
     setIsSavingProfile(true);
     try {
-      await new Promise((res) => setTimeout(res, 600));
-      updateUser({ fullName, email, mobile, city, address });
-      toast.success("Profile information updated successfully!");
+      const account = await accountService.updateMe({
+        fullName: fullName.trim(),
+        email: email.trim() || undefined,
+        mobile: mobile.trim(),
+        city: city.trim() || undefined,
+        address: address.trim() || undefined,
+      });
+      applyAccount(account);
+      toast.success("Profile saved");
     } catch (err: any) {
-      toast.error(err?.message || "Failed to update profile.");
+      toast.error(err?.message || "Couldn't save your profile. Please try again.");
     } finally {
       setIsSavingProfile(false);
     }
@@ -111,122 +121,91 @@ export default function ProfilePage() {
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      toast.error("New password and confirm password do not match!");
+      toast.error("The new passwords don't match.");
       return;
     }
     if (newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters long.");
+      toast.error("The new password must be at least 6 characters.");
       return;
     }
 
     setIsSubmittingPassword(true);
     try {
-      await new Promise((res) => setTimeout(res, 600));
-      toast.success("Account password changed successfully!");
+      await accountService.changePassword(currentPassword, newPassword);
+      toast.success("Password changed");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: any) {
-      toast.error(err?.message || "Failed to update password.");
+      toast.error(err?.message || "Couldn't change your password. Please try again.");
     } finally {
       setIsSubmittingPassword(false);
     }
   };
 
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-8 pb-20 space-y-8 animate-in fade-in duration-200">
-      {/* Top Banner Hero Header */}
-      <div className="relative rounded-2xl bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-950 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 p-6 md:p-8 text-white border border-zinc-800 shadow-xl overflow-hidden">
-        {/* Subtle background glow */}
-        <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-zinc-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative flex flex-col md:flex-row items-center md:items-start gap-6">
-          {/* Avatar Ring with Change Photo Button */}
-          <div className="relative group shrink-0">
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="image/*"
-              className="hidden"
-              onChange={handleAvatarChange}
-            />
-            <div
-              onClick={handleAvatarClick}
-              className="relative flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-full bg-white text-zinc-950 font-extrabold text-3xl shadow-2xl ring-4 ring-white/20 overflow-hidden cursor-pointer group-hover:opacity-90 transition-all"
-            >
-              {avatarUrl ? (
-                <Image src={avatarUrl} alt={displayName} fill className="object-cover rounded-full" />
-              ) : (
-                <span>{initial}</span>
-              )}
-
-              {/* Hover Camera Overlay */}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white text-[10px] font-bold transition-opacity">
-                {isUploadingAvatar ? (
-                  <LuLoader className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <LuCamera className="w-5 h-5 mb-0.5" />
-                    <span>Change</span>
-                  </>
-                )}
-              </div>
+    <div className="container mx-auto max-w-4xl px-4 py-8 pb-20 space-y-5 animate-in fade-in duration-200">
+      <ConfirmDialog
+        isOpen={confirmRemovePhoto}
+        onOpenChange={(open) => !open && setConfirmRemovePhoto(false)}
+        title="Remove profile photo"
+        message="Your photo will be deleted and your initial shown instead. You can upload a new one any time."
+        confirmText="Remove photo"
+        onConfirm={handleRemovePhoto}
+        isLoading={isRemovingPhoto}
+      />
+      {/* Compact account header */}
+      <div className="flex items-center gap-4 sm:gap-5 p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+        {/* Photo: upload, change or remove (stored on the server) */}
+        <ImageInput
+          variant="avatar"
+          size="sm"
+          value={avatarUrl}
+          onUpload={handleAvatarUpload}
+          onRemove={() => setConfirmRemovePhoto(true)}
+          maxSizeMb={5}
+          className="shrink-0"
+          fallback={<span className="text-2xl font-extrabold text-zinc-700">{initial}</span>}
+        />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <h1 className="text-lg md:text-xl font-bold text-zinc-900 dark:text-white truncate">{displayName}</h1>
+          <p className="text-xs text-zinc-500 truncate">
+            <span className="font-mono">@{user.username}</span>
+            {user.email && <span> · {user.email}</span>}
+          </p>
+          {roles && roles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {roles.map((role) => (
+                <span
+                  key={role}
+                  className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-brand/10 text-brand-strong"
+                >
+                  {role.replace("ROLE_", "")}
+                </span>
+              ))}
             </div>
-
-            {/* Active Status Badge */}
-            <Tooltip content="Change photo">
-              <button
-                type="button"
-                onClick={handleAvatarClick}
-                aria-label="Change profile photo"
-                className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-emerald-500 hover:bg-emerald-600 border-2 border-zinc-900 flex items-center justify-center text-white cursor-pointer transition-transform hover:scale-110 shadow-md"
-              >
-                <LuCamera className="w-3.5 h-3.5" />
-              </button>
-            </Tooltip>
-          </div>
-
-          {/* User Details Header */}
-          <div className="space-y-2 text-center md:text-left flex-1 min-w-0">
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
-              <h1 className="text-xl md:text-2xl font-bold tracking-tight">{displayName}</h1>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                <LuCircleCheck className="w-3 h-3" />
-                Active Session
-              </span>
-            </div>
-
-            <div className="text-xs text-zinc-400 font-mono">@{user.username}</div>
-
-            {user.email && (
-              <div className="flex items-center justify-center md:justify-start gap-1.5 text-xs text-zinc-300">
-                <LuMail className="w-3.5 h-3.5 text-zinc-400" />
-                <span>{user.email}</span>
-              </div>
-            )}
-
-            {/* Assigned Role Badges */}
-            <div className="pt-1 flex flex-wrap items-center justify-center md:justify-start gap-1.5">
-              {roles && roles.length > 0 ? (
-                roles.map((role, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-white/10 text-white border border-white/15 backdrop-blur-md"
-                  >
-                    <LuSparkles className="w-3 h-3 text-amber-300" />
-                    {role.replace("ROLE_", "")}
-                  </span>
-                ))
-              ) : (
-                <span className="text-xs text-zinc-400 italic">User</span>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
+      {/* One section at a time: no long scrolling page */}
+      <SegmentedTabs
+        fullWidth
+        value={activeTab}
+        onChange={setActiveTab}
+        tabs={[
+          { id: "profile", label: "Profile", icon: LuUser },
+          { id: "security", label: "Password", icon: LuKey },
+          { id: "orders", label: "My Orders", icon: LuShoppingBag },
+        ]}
+      />
+
+      {/* Order history */}
+      {activeTab === "orders" && <MyOrders />}
+
       {/* SECTION 1: PERSONAL & CONTACT DETAILS */}
-      <div className="p-6 md:p-8 rounded-2xl bg-[#FDFBF9] dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6">
+      {activeTab === "profile" && (
+      <div className="p-6 md:p-8 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6">
         <div>
           <h2 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
             <LuUser className="w-4.5 h-4.5 text-zinc-500" />
@@ -313,16 +292,18 @@ export default function ProfilePage() {
             <Button
               type="submit"
               disabled={isSavingProfile}
-              className="px-5 py-2.5 text-xs font-bold rounded-xl bg-[#5c8b29] hover:bg-[#4a7021] text-white shadow-lg shadow-zinc-950/10 transition-all cursor-pointer"
+              className="px-5 py-2.5 text-xs font-bold rounded-xl bg-brand hover:bg-brand-hover text-white shadow-lg shadow-zinc-950/10 transition-all cursor-pointer"
             >
               {isSavingProfile ? "Saving..." : "Save Profile Changes"}
             </Button>
           </div>
         </form>
       </div>
+      )}
 
       {/* SECTION 2: PASSWORD & SECURITY */}
-      <div className="p-6 md:p-8 rounded-2xl bg-[#FDFBF9] dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6">
+      {activeTab === "security" && (
+      <div className="p-6 md:p-8 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6">
         <div>
           <h2 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
             <LuKey className="w-4.5 h-4.5 text-zinc-500" />
@@ -373,13 +354,14 @@ export default function ProfilePage() {
             <Button
               type="submit"
               disabled={isSubmittingPassword}
-              className="px-5 py-2.5 text-xs font-bold rounded-xl bg-[#5c8b29] hover:bg-[#4a7021] text-white shadow-lg shadow-zinc-950/10 transition-all cursor-pointer"
+              className="px-5 py-2.5 text-xs font-bold rounded-xl bg-brand hover:bg-brand-hover text-white shadow-lg shadow-zinc-950/10 transition-all cursor-pointer"
             >
               {isSubmittingPassword ? "Updating..." : "Update Password"}
             </Button>
           </div>
         </form>
       </div>
+      )}
     </div>
   );
 }

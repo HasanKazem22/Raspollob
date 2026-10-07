@@ -244,7 +244,7 @@ export function DashboardTab() {
               <button
                 type="button"
                 onClick={() => setShowTable((v) => !v)}
-                className="text-xs font-semibold text-[#4a7021] hover:underline cursor-pointer"
+                className="text-xs font-semibold text-brand-strong hover:underline cursor-pointer"
               >
                 {showTable ? "Show as chart" : "Show as table"}
               </button>
@@ -309,7 +309,7 @@ export function DashboardTab() {
               <div className="pt-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-zinc-900">Low stock</h3>
-                  <Link href="/admin/products" className="text-xs font-semibold text-[#4a7021] hover:underline">
+                  <Link href="/admin/products" className="text-xs font-semibold text-brand-strong hover:underline">
                     Manage products
                   </Link>
                 </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { Tooltip } from "@/components/ui/tooltip";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
@@ -21,6 +21,7 @@ import {
 } from "react-icons/lu";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { accountService } from "@/services/accountService";
 import { useStoreConfig } from "@/context/StoreConfigContext";
 import { orderService } from "@/services/orderService";
 import { resolveMediaUrl } from "@/lib/api";
@@ -39,12 +40,32 @@ import { QuantityAdjuster } from "@/components/shop/QuantityAdjuster";
 import type { Address, DeliveryZone, OrderQuote, PaymentMethod } from "@/types/order";
 import { PERM } from "@/lib/permissions";
 
-const SAVED_ADDRESS_KEY = "checkout_address_v1";
+/** Last address used by a guest on this device (signed-in customers use their account instead) */
+const GUEST_ADDRESS_KEY = "checkout_address_guest_v2";
+/** Older key that was shared by everyone using the browser; cleared on sight */
+const LEGACY_ADDRESS_KEY = "checkout_address_v1";
+
+function readGuestAddress(): Address | null {
+  try {
+    localStorage.removeItem(LEGACY_ADDRESS_KEY);
+    const saved = localStorage.getItem(GUEST_ADDRESS_KEY);
+    return saved ? { ...EMPTY_ADDRESS, ...JSON.parse(saved) } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Delivery area suggested by the city (the customer can still change it). */
+function zoneForCity(city: string): DeliveryZone | null {
+  const c = city.trim().toLowerCase();
+  if (!c) return null;
+  return c.includes("dhaka") || c.includes("ঢাকা") ? "INSIDE_DHAKA" : "OUTSIDE_DHAKA";
+}
 const CONTAINER = "container mx-auto px-4 lg:px-8 xl:px-12 max-w-7xl";
 
 /** Brand chip for each payment method. */
 const METHOD_STYLE: Record<PaymentMethod, { short: string; className: string }> = {
-  COD: { short: "", className: "bg-[#5c8b29]/10 text-[#5c8b29]" },
+  COD: { short: "", className: "bg-brand/10 text-brand" },
   BKASH: { short: "bK", className: "bg-[#e2136e] text-white" },
   NAGAD: { short: "N", className: "bg-[#f6921e] text-white" },
   ROCKET: { short: "R", className: "bg-[#8c3494] text-white" },
@@ -84,7 +105,7 @@ function Section({
   return (
     <section id={id} className="bg-white border border-zinc-200 rounded-2xl p-5 md:p-6 shadow-sm scroll-mt-28">
       <header className="flex items-start gap-3 mb-5">
-        <span className="w-7 h-7 shrink-0 rounded-full bg-[#5c8b29] text-white text-xs font-bold flex items-center justify-center">
+        <span className="w-7 h-7 shrink-0 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center">
           {step}
         </span>
         <div>
@@ -124,17 +145,17 @@ function OptionCard({
       className={cn(
         "w-full flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer disabled:opacity-50",
         selected
-          ? "border-[#5c8b29] bg-[#5c8b29]/[0.04] ring-1 ring-[#5c8b29]"
+          ? "border-brand bg-brand/[0.04] ring-1 ring-brand"
           : "border-zinc-200 bg-white hover:border-zinc-300"
       )}
     >
       <span
         className={cn(
           "w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center",
-          selected ? "border-[#5c8b29]" : "border-zinc-300"
+          selected ? "border-brand" : "border-zinc-300"
         )}
       >
-        {selected && <span className="w-2 h-2 rounded-full bg-[#5c8b29]" />}
+        {selected && <span className="w-2 h-2 rounded-full bg-brand" />}
       </span>
       {icon}
       <span className="flex-1 min-w-0">
@@ -153,7 +174,7 @@ function FieldError({ message }: { message?: string }) {
 export default function CheckoutPage() {
   const router = useRouter();
   const { cartItems, cartCount, clearCart, updateQuantity, removeFromCart } = useCart();
-  const { user, can, isReady } = useAuth();
+  const { user, can, isReady, applyAccount } = useAuth();
   // Guests may check out unless the store turned that off for the GUEST role
   const canPlaceOrder = can(PERM.storefront.placeOrder);
   const { config, status: configStatus, refresh: refreshConfig } = useStoreConfig();
@@ -165,6 +186,11 @@ export default function CheckoutPage() {
   const [billingSame, setBillingSame] = useState(true);
   const [billing, setBilling] = useState<Address>(EMPTY_ADDRESS);
   const [zone, setZone] = useState<DeliveryZone>("INSIDE_DHAKA");
+  /** True once the customer picks a delivery area themselves (then the city no longer changes it) */
+  const [zoneChosen, setZoneChosen] = useState(false);
+  /** True once the customer edits the shipping address (then prefill stops) */
+  const [addressEdited, setAddressEdited] = useState(false);
+  const [saveToAccount, setSaveToAccount] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [transactionId, setTransactionId] = useState("");
   const [senderNumber, setSenderNumber] = useState("");
@@ -183,32 +209,42 @@ export default function CheckoutPage() {
   const [isPlacing, setIsPlacing] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // --- Prefill: last used address, otherwise the signed-in user's profile -------
-  const prefilled = useRef(false);
-  useEffect(() => {
-    if (prefilled.current) return;
-    try {
-      const saved = localStorage.getItem(SAVED_ADDRESS_KEY);
-      if (saved) {
-        setShipping({ ...EMPTY_ADDRESS, ...JSON.parse(saved) });
-        prefilled.current = true;
-        return;
-      }
-    } catch {
-      // Ignore unreadable saved address
+  // --- Prefill -------------------------------------------------------------------
+  // Signed in: the account's saved details. They're refreshed from the server shortly after the page
+  // loads, so keep refilling until the customer starts editing. Guests: the last address on this device.
+  const prefillSource = !isReady
+    ? null
+    : user
+      ? `account:${JSON.stringify([user.fullName, user.mobile, user.email, user.address, user.city])}`
+      : "guest";
+  const [prefilledFrom, setPrefilledFrom] = useState<string | null>(null);
+  if (prefillSource && prefillSource !== prefilledFrom && !addressEdited) {
+    setPrefilledFrom(prefillSource);
+    const next: Address | null = user
+      ? {
+          ...EMPTY_ADDRESS,
+          fullName: user.fullName || "",
+          phone: user.mobile || "",
+          email: user.email || "",
+          addressLine: user.address || "",
+          city: user.city || "",
+        }
+      : readGuestAddress();
+    if (next) {
+      setShipping(next);
+      const suggested = zoneForCity(next.city);
+      if (suggested && !zoneChosen) setZone(suggested);
     }
-    if (user) {
-      setShipping((prev) => ({
-        ...prev,
-        fullName: prev.fullName || user.fullName || "",
-        phone: prev.phone || user.mobile || "",
-        email: prev.email || user.email || "",
-        addressLine: prev.addressLine || user.address || "",
-        city: prev.city || user.city || "",
-      }));
-      prefilled.current = true;
+  }
+
+  const handleShippingChange = (next: Address) => {
+    setAddressEdited(true);
+    if (!zoneChosen && next.city !== shipping.city) {
+      const suggested = zoneForCity(next.city);
+      if (suggested) setZone(suggested);
     }
-  }, [user]);
+    setShipping(next);
+  };
 
   // --- Payment methods enabled in admin settings --------------------------------
   const methods = useMemo(() => {
@@ -345,10 +381,27 @@ export default function CheckoutPage() {
       });
 
       try {
-        localStorage.setItem(SAVED_ADDRESS_KEY, JSON.stringify(shipping));
+        // Guests: remember the address on this device. Signed-in customers keep it in their account.
+        if (!user) localStorage.setItem(GUEST_ADDRESS_KEY, JSON.stringify(shipping));
         sessionStorage.setItem(`order:${order.orderNumber}`, JSON.stringify(order));
       } catch {
         // Storage unavailable (private mode) — the order page can still look it up
+      }
+      if (user && saveToAccount && user.mobile) {
+        const address = [shipping.addressLine, shipping.area].map((p) => p?.trim()).filter(Boolean).join(", ");
+        if (address !== (user.address ?? "") || shipping.city.trim() !== (user.city ?? "")) {
+          // The order is already placed; a failed save just means the profile isn't updated
+          accountService
+            .updateMe({
+              fullName: user.fullName || shipping.fullName.trim(),
+              email: user.email || undefined,
+              mobile: user.mobile,
+              city: shipping.city.trim() || undefined,
+              address: address || undefined,
+            })
+            .then(applyAccount)
+            .catch(() => undefined);
+        }
       }
       setIsRedirecting(true);
       clearCart();
@@ -369,7 +422,7 @@ export default function CheckoutPage() {
 
   if (cartItems.length === 0) {
     return (
-      <div className="min-h-[70vh] bg-[#FDFBF9] flex flex-col items-center justify-center px-4 text-center">
+      <div className="min-h-[70vh] bg-background flex flex-col items-center justify-center px-4 text-center">
         <div className="w-24 h-24 bg-zinc-100 rounded-full flex items-center justify-center mb-6 text-zinc-400">
           <LuShoppingCart className="w-10 h-10" />
         </div>
@@ -377,7 +430,7 @@ export default function CheckoutPage() {
         <p className="text-zinc-500 mb-8 max-w-sm">Add some products before checking out.</p>
         <Link
           href="/"
-          className="bg-[#5c8b29] hover:bg-[#4a7021] text-white font-bold py-3 px-8 rounded-full transition-colors"
+          className="bg-brand hover:bg-brand-hover text-white font-bold py-3 px-8 rounded-full transition-colors"
         >
           Return to Shop
         </Link>
@@ -391,7 +444,7 @@ export default function CheckoutPage() {
 
   if (configStatus !== "success") {
     return (
-      <div className="min-h-[60vh] bg-[#FDFBF9] py-12">
+      <div className="min-h-[60vh] bg-background py-12">
         <ServerErrorCard onRetry={refreshConfig} title="Checkout is unavailable" description="We couldn't reach the store. Please try again in a moment." />
       </div>
     );
@@ -406,7 +459,7 @@ export default function CheckoutPage() {
       : 0;
 
   return (
-    <div className="min-h-screen bg-[#FDFBF9] pb-20">
+    <div className="min-h-screen bg-background pb-20">
       <div className={`${CONTAINER} pt-10 pb-6 flex flex-wrap items-end justify-between gap-4`}>
         <div>
           <h1 className="text-3xl font-serif font-bold text-zinc-900">Cart & Checkout</h1>
@@ -418,7 +471,7 @@ export default function CheckoutPage() {
                 : "Sign in to place your order."}
           </p>
         </div>
-        <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#5c8b29] hover:gap-2.5 transition-all">
+        <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:gap-2.5 transition-all">
           <LuArrowLeft className="w-4 h-4" /> Continue shopping
         </Link>
       </div>
@@ -466,7 +519,7 @@ export default function CheckoutPage() {
                             </p>
                             <Link
                               href={`/product/${item.id}`}
-                              className="font-serif font-bold text-zinc-900 leading-snug hover:text-[#5c8b29] transition-colors line-clamp-2"
+                              className="font-serif font-bold text-zinc-900 leading-snug hover:text-brand transition-colors line-clamp-2"
                             >
                               {item.name}
                             </Link>
@@ -493,7 +546,7 @@ export default function CheckoutPage() {
                             disableDecrease={item.quantity <= 1 || isPlacing}
                             disableIncrease={atStockLimit || isPlacing}
                             className="h-9 w-[110px] rounded-full border border-zinc-200 bg-white px-1"
-                            buttonClassName="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-[#5c8b29] transition-colors cursor-pointer"
+                            buttonClassName="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-brand transition-colors cursor-pointer"
                             textClassName="font-bold text-sm text-zinc-900 flex-1 text-center tabular-nums"
                             iconClassName="w-3.5 h-3.5"
                           />
@@ -515,7 +568,20 @@ export default function CheckoutPage() {
             </Section>
 
             <Section id="shipping" step={2} title="Shipping Address" description="Where should we deliver your order?">
-              <AddressFields idPrefix="ship" value={shipping} onChange={setShipping} errors={errors.shipping} disabled={isPlacing} />
+              <AddressFields idPrefix="ship" value={shipping} onChange={handleShippingChange} errors={errors.shipping} disabled={isPlacing} />
+
+              {user && (
+                <label className="mt-4 flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={saveToAccount}
+                    onChange={(e) => setSaveToAccount(e.target.checked)}
+                    disabled={isPlacing}
+                    className="w-4 h-4 accent-brand"
+                  />
+                  <span className="text-sm text-zinc-700">Save this address to my account for next time</span>
+                </label>
+              )}
 
               <div className="mt-6">
                 <p className="text-xs font-semibold text-zinc-700 mb-2">Delivery Area</p>
@@ -524,7 +590,10 @@ export default function CheckoutPage() {
                     <OptionCard
                       key={z}
                       selected={zone === z}
-                      onSelect={() => setZone(z)}
+                      onSelect={() => {
+                        setZoneChosen(true);
+                        setZone(z);
+                      }}
                       title={DELIVERY_ZONE_LABEL[z]}
                       subtitle={z === "INSIDE_DHAKA" ? "1–2 business days" : "2–4 business days"}
                       icon={<LuTruck className="w-4 h-4 text-zinc-400" />}
@@ -547,7 +616,7 @@ export default function CheckoutPage() {
                   checked={billingSame}
                   onChange={(e) => setBillingSame(e.target.checked)}
                   disabled={isPlacing}
-                  className="w-4 h-4 accent-[#5c8b29]"
+                  className="w-4 h-4 accent-brand"
                 />
                 <span className="text-sm font-semibold text-zinc-800">Same as shipping address</span>
               </label>
@@ -598,7 +667,7 @@ export default function CheckoutPage() {
                         navigator.clipboard?.writeText(selectedMethod.number ?? "");
                         toast.success("Number copied");
                       }}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-[#5c8b29] hover:underline cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline cursor-pointer"
                     >
                       <LuCopy className="w-3.5 h-3.5" /> Copy
                     </button>
@@ -675,7 +744,7 @@ export default function CheckoutPage() {
                       </span>
                     )}
                   </span>
-                  <span className="text-xs text-zinc-500 group-hover:text-[#5c8b29] transition-colors">
+                  <span className="text-xs text-zinc-500 group-hover:text-brand transition-colors">
                     {cartCount} item{cartCount === 1 ? "" : "s"}
                     {hasStockIssues && <span className="block font-semibold text-red-600">Check your cart</span>}
                   </span>
@@ -685,11 +754,11 @@ export default function CheckoutPage() {
               {/* Promo code */}
               <div className="pt-4 border-t border-zinc-100">
                 {appliedPromo ? (
-                  <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-[#5c8b29]/[0.06] border border-[#5c8b29]/20">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-brand/[0.06] border border-brand/20">
                     <span className="flex items-center gap-2 text-sm">
-                      <LuTag className="w-4 h-4 text-[#5c8b29]" />
+                      <LuTag className="w-4 h-4 text-brand" />
                       <span className="font-mono font-bold text-zinc-900">{appliedPromo}</span>
-                      <span className="text-[#4a7021] font-semibold">−{formatTaka(quote?.discountAmount)}</span>
+                      <span className="text-brand-strong font-semibold">−{formatTaka(quote?.discountAmount)}</span>
                     </span>
                     <Tooltip content="Remove code">
                     <button
@@ -762,7 +831,7 @@ export default function CheckoutPage() {
                       <dd className="font-semibold text-zinc-900">{isFreeShipping ? "Free" : formatTaka(quote.shippingFee)}</dd>
                     </div>
                     {quote.discountAmount > 0 && (
-                      <div className="flex justify-between text-[#4a7021]">
+                      <div className="flex justify-between text-brand-strong">
                         <dt>Discount</dt>
                         <dd className="font-semibold">−{formatTaka(quote.discountAmount)}</dd>
                       </div>
@@ -811,7 +880,7 @@ export default function CheckoutPage() {
                 type="button"
                 onClick={placeOrder}
                 disabled={isPlacing || !quote || isRepricing || hasStockIssues || methods.length === 0 || !canPlaceOrder}
-                className="w-full bg-[#5c8b29] hover:bg-[#4a7021] text-white font-bold py-4 rounded-full shadow-lg shadow-[#5c8b29]/20 transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full bg-brand hover:bg-brand-hover text-white font-bold py-4 rounded-full shadow-lg shadow-brand/20 transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isPlacing ? (
                   <>

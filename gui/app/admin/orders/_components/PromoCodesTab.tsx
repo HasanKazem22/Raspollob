@@ -203,7 +203,7 @@ export function PromoCodesTab() {
       className: "w-44",
       cell: (p) => (
         <div>
-          <div className="font-bold text-[#4a7021]">{describeDiscount(p)}</div>
+          <div className="font-bold text-brand-strong">{describeDiscount(p)}</div>
           {p.minOrderAmount ? <div className="text-[11px] text-zinc-400">Min. order {formatTaka(p.minOrderAmount)}</div> : null}
         </div>
       ),

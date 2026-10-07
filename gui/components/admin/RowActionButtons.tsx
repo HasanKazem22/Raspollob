@@ -50,3 +50,4 @@ export function RowViewButton(props: RowActionButtonProps) {
 export function RowDeleteButton(props: RowActionButtonProps) {
   return <RowIconButton icon={LuTrash2} base={dangerButton} {...props} />;
 }
+

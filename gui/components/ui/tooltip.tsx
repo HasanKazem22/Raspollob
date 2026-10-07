@@ -38,7 +38,7 @@ export function Tooltip({ content, children, side = "bottom", align = "center" }
           align={align}
           sideOffset={6}
           collisionPadding={8}
-          className="z-[300] max-w-[240px] rounded px-2 py-1 bg-[#5c8b29] text-white text-[10px] font-bold leading-snug shadow-sm select-none data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-[state=instant-open]:animate-in data-[state=instant-open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
+          className="z-[300] max-w-[240px] rounded px-2 py-1 bg-brand text-white text-[10px] font-bold leading-snug shadow-sm select-none data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-[state=instant-open]:animate-in data-[state=instant-open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
         >
           {content}
         </TooltipPrimitive.Content>

@@ -128,6 +128,9 @@ export function SystemUsersTab() {
     }
   };
 
+  /** Only roles a staff account can have (the server marks Customer and Guest as not assignable) */
+  const staffRoles = rolesList.filter((r) => r.staffAssignable);
+
   const toggleRole = (roleId: number, checked: boolean) =>
     setUserForm({
       ...userForm,
@@ -276,15 +279,19 @@ export function SystemUsersTab() {
             </FormField>
           </div>
 
-          <FormField label="Assigned Roles">
+          <FormField
+            label="Assigned Roles"
+            required
+            hint="Customer and Guest aren't listed: customers sign up themselves, and Guest is for visitors who aren't signed in."
+          >
             <div className="space-y-2 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 max-h-36 overflow-y-auto">
-              {rolesList.map((r) => (
+              {staffRoles.map((r) => (
                 <label key={r.id} className="flex items-center gap-2 cursor-pointer select-none text-sm">
                   <input
                     type="checkbox"
                     checked={userForm.roleIds.includes(r.id)}
                     onChange={(e) => toggleRole(r.id, e.target.checked)}
-                    className="w-4 h-4 accent-[#5c8b29] rounded"
+                    className="w-4 h-4 accent-brand rounded"
                   />
                   <span className="font-semibold text-zinc-900 dark:text-white">{r.name}</span>
                 </label>

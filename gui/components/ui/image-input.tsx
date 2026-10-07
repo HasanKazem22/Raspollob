@@ -34,8 +34,10 @@ export interface ImageInputProps {
   onUpload: (file: File) => Promise<string>;
   /** Fires with the new URL after upload */
   onChange?: (url: string) => void;
-  /** When given, a remove button is shown on the card variant */
-  onRemove?: () => void;
+  /** When given, a remove button is shown (card and avatar variants) */
+  onRemove?: () => void | Promise<void>;
+  /** Avatar variant: shown when there's no image (e.g. the user's initial) */
+  fallback?: React.ReactNode;
   /** Thumbnail / avatar / card size */
   size?: ImageInputSize;
   /** Display layout */
@@ -142,7 +144,7 @@ function UploadingOverlay({ className }: { className?: string }) {
         className
       )}
     >
-      <LuLoader className="size-5 animate-spin text-[#5c8b29]" />
+      <LuLoader className="size-5 animate-spin text-brand" />
     </span>
   );
 }
@@ -170,7 +172,7 @@ function FloatingIconButton({
         aria-label={title}
         className={cn(
           "flex size-6 items-center justify-center rounded-full bg-white/90 text-zinc-600 shadow-sm ring-1 ring-black/5 backdrop-blur transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
-          danger ? "hover:text-red-600" : "hover:text-[#5c8b29]"
+          danger ? "hover:text-red-600" : "hover:text-brand"
         )}
       >
         {children}
@@ -197,6 +199,7 @@ export function ImageInput({
   label,
   maxSizeMb = 10,
   className,
+  fallback,
 }: ImageInputProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
@@ -263,7 +266,7 @@ export function ImageInput({
           className={cn(
             "relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-100 ring-1 ring-zinc-200",
             thumbSize[size],
-            isDragging && "ring-2 ring-[#5c8b29]"
+            isDragging && "ring-2 ring-brand"
           )}
         >
           {displaySrc ? (
@@ -280,7 +283,7 @@ export function ImageInput({
           className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 shadow-xs transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
           {isUploading ? (
-            <LuLoader className="size-3.5 animate-spin text-[#5c8b29]" />
+            <LuLoader className="size-3.5 animate-spin text-brand" />
           ) : (
             <LuUpload className="size-3.5" />
           )}
@@ -304,7 +307,7 @@ export function ImageInput({
           disabled={isBusy}
           aria-label={displaySrc ? "Change photo" : "Upload photo"}
           className={cn(
-            "group relative shrink-0 rounded-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8b29]/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed",
+            "group relative shrink-0 rounded-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed",
             avatarSize[size]
           )}
           {...dropProps}
@@ -312,13 +315,13 @@ export function ImageInput({
           <span
             className={cn(
               "relative flex size-full items-center justify-center overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200 transition-shadow group-hover:ring-zinc-300",
-              isDragging && "ring-2 ring-[#5c8b29]"
+              isDragging && "ring-2 ring-brand"
             )}
           >
             {displaySrc ? (
               <img src={displaySrc} alt="Avatar" className="size-full object-cover" />
             ) : (
-              <LuImage className="size-1/3 text-zinc-400" />
+              fallback ?? <LuImage className="size-1/3 text-zinc-400" />
             )}
             {isUploading && <UploadingOverlay className="rounded-full" />}
           </span>
@@ -332,6 +335,17 @@ export function ImageInput({
             <LuCamera className="size-3.5" />
           </span>
         </button>
+
+        {onRemove && displaySrc && !isUploading && (
+          <button
+            type="button"
+            onClick={() => void onRemove()}
+            disabled={disabled}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-zinc-400 hover:text-red-500 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <LuTrash2 className="size-3" /> Remove photo
+          </button>
+        )}
 
         {hiddenInput}
       </div>
@@ -350,11 +364,11 @@ export function ImageInput({
           disabled={isBusy}
           aria-label={displaySrc ? "Replace image" : "Upload image"}
           className={cn(
-            "relative size-full overflow-hidden rounded-xl transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8b29]/40 focus-visible:ring-offset-2",
+            "relative size-full overflow-hidden rounded-xl transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2",
             displaySrc
               ? "bg-zinc-100 ring-1 ring-zinc-200"
-              : "border border-dashed border-zinc-300 bg-zinc-50/60 hover:border-[#5c8b29]/60 hover:bg-[#5c8b29]/[0.03]",
-            isDragging && "border-[#5c8b29] bg-[#5c8b29]/5 ring-4 ring-[#5c8b29]/10",
+              : "border border-dashed border-zinc-300 bg-zinc-50/60 hover:border-brand/60 hover:bg-brand/[0.03]",
+            isDragging && "border-brand bg-brand/5 ring-4 ring-brand/10",
             disabled && "cursor-not-allowed opacity-50"
           )}
           {...dropProps}
@@ -370,7 +384,7 @@ export function ImageInput({
               )}
             </>
           ) : (
-            <span className="flex size-full flex-col items-center justify-center gap-1.5 text-zinc-400 transition-colors group-hover:text-[#5c8b29]">
+            <span className="flex size-full flex-col items-center justify-center gap-1.5 text-zinc-400 transition-colors group-hover:text-brand">
               <LuImagePlus className="size-5" />
               <span className="text-[11px] font-medium">{isDragging ? "Drop image" : "Upload"}</span>
             </span>
@@ -529,7 +543,7 @@ export function MultiImageInput({
               className={cn(
                 "group relative overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-900",
                 aspectRatio,
-                img.isPrimary ? "ring-2 ring-[#5c8b29] ring-offset-2" : "ring-1 ring-zinc-200 dark:ring-zinc-800"
+                img.isPrimary ? "ring-2 ring-brand ring-offset-2" : "ring-1 ring-zinc-200 dark:ring-zinc-800"
               )}
             >
               {displaySrc ? (
@@ -548,7 +562,7 @@ export function MultiImageInput({
 
               {img.isPrimary && (
                 <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-medium text-zinc-700 shadow-sm backdrop-blur">
-                  <LuStar className="size-2.5 fill-[#5c8b29] text-[#5c8b29]" />
+                  <LuStar className="size-2.5 fill-brand text-brand" />
                   Cover
                 </span>
               )}
@@ -576,9 +590,9 @@ export function MultiImageInput({
             onClick={() => fileInputRef.current?.click()}
             disabled={isBusy}
             className={cn(
-              "flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 text-zinc-400 transition-colors cursor-pointer select-none hover:border-[#5c8b29]/60 hover:bg-[#5c8b29]/[0.03] hover:text-[#5c8b29] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8b29]/40",
+              "flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 text-zinc-400 transition-colors cursor-pointer select-none hover:border-brand/60 hover:bg-brand/[0.03] hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
               aspectRatio,
-              isDragging && "border-[#5c8b29] bg-[#5c8b29]/5 text-[#5c8b29]",
+              isDragging && "border-brand bg-brand/5 text-brand",
               isBusy && "cursor-not-allowed opacity-50"
             )}
           >

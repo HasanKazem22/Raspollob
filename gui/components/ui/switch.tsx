@@ -14,7 +14,7 @@ export function Switch({
   checked,
   onChange,
   disabled,
-  activeColor = "bg-[#5c8b29]",
+  activeColor = "bg-brand",
 }: SwitchProps) {
   return (
     <button
@@ -66,7 +66,7 @@ export function SwitchCard({
   return (
     <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className="w-8 h-8 shrink-0 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[#5c8b29] flex items-center justify-center">
+        <div className="w-8 h-8 shrink-0 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-brand flex items-center justify-center">
           {icon}
         </div>
         <div className="min-w-0">

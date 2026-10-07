@@ -12,6 +12,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { ServerErrorCard } from "@/components/ui/ServerErrorCard";
 import { PERM } from "@/lib/permissions";
 import { useAuth } from "@/context/AuthContext";
+import { refreshAdminCounts } from "@/components/admin/AdminCounts";
 
 const formatDate = (iso: string) => new Date(iso).toLocaleString();
 
@@ -45,6 +46,7 @@ export default function AdminMessagesPage() {
     try {
       await contactService.markAsRead(msg.id);
       setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, isRead: true } : m)));
+      refreshAdminCounts();
     } catch (err: any) {
       toast.error(err?.message || "Failed to mark as read");
     }
@@ -60,7 +62,7 @@ export default function AdminMessagesPage() {
             <span className="w-2 h-2 rounded-full shrink-0" />
           ) : (
             <Tooltip content="Unread" side="top">
-              <span className="w-2 h-2 rounded-full shrink-0 bg-[#5c8b29]" role="img" aria-label="Unread" />
+              <span className="w-2 h-2 rounded-full shrink-0 bg-brand" role="img" aria-label="Unread" />
             </Tooltip>
           )}
           <div className="min-w-0">
@@ -91,7 +93,7 @@ export default function AdminMessagesPage() {
             Read
           </span>
         ) : (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#5c8b29]/10 text-[#5c8b29] border border-[#5c8b29]/20">
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-brand/10 text-brand border border-brand/20">
             New
           </span>
         ),

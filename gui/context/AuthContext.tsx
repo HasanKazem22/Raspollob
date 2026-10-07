@@ -6,6 +6,7 @@ import { parseJwt } from "../lib/utils/jwt";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../lib/api";
 import { ADMIN_MODULE_KEYS, PermissionTree, resolvePermission } from "../lib/permissions";
+import { accountService, type Account } from "../services/accountService";
 
 export interface User {
   id?: number;
@@ -50,9 +51,27 @@ interface AuthContextType {
   /** Re-fetch permissions from the server, e.g. after editing role permissions */
   refreshPermissions: () => Promise<void>;
   updateUser: (partialUser: Partial<User>) => void;
+  /** Applies the server's copy of the signed-in user's profile (after saving, uploading a photo…) */
+  applyAccount: (account: Account) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/** The profile fields the server owns; anything cached in the browser is replaced by these. */
+function accountToUser(account: Account): Partial<User> {
+  return {
+    id: account.id,
+    username: account.username,
+    fullName: account.fullName,
+    email: account.email ?? undefined,
+    mobile: account.mobile,
+    city: account.city ?? undefined,
+    address: account.address ?? undefined,
+    avatarUrl: account.avatarUrl ?? undefined,
+    avatar: undefined,
+    roles: account.roles,
+  };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -61,6 +80,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   /** Loads the caller's effective permissions (signed-in roles, or the guest role). */
+  /** Merges fields into the signed-in user and keeps the cached copy in sync. */
+  const mergeUser = useCallback((partialUser: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...partialUser };
+      localStorage.setItem("user_info", JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   const refreshPermissions = useCallback(async () => {
     try {
       const res = await apiFetch("/auth/permissions");
@@ -129,7 +158,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Always ask the server: an admin may have changed this role's permissions since last visit.
     // Ready only once that settles, so guards never act on stale or missing permissions.
     refreshPermissions().finally(() => setIsReady(true));
-  }, [refreshPermissions]);
+
+    // Profile (name, photo…) comes from the server too, so it's the same on every device
+    if (getCookie("auth_token") || localStorage.getItem("access_token")) {
+      accountService
+        .getMe()
+        .then((account) => mergeUser(accountToUser(account)))
+        .catch(() => {
+          // Offline or token expired: keep the cached copy; protected pages handle sign-in
+        });
+    }
+  }, [refreshPermissions, mergeUser]);
 
   const login = (payload: AuthResponsePayload | any, redirectTo: string = "/") => {
     const token = typeof payload === "string" ? payload : payload?.accessToken || payload?.token;
@@ -192,16 +231,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Decided by permissions, not by role name: any admin module grants entry to the panel
   const canAccessAdmin = !!user && (isAdmin || ADMIN_MODULE_KEYS.some((key) => canAccess(`${key}.isAccess`)));
 
-  const updateUser = (partialUser: Partial<User>) => {
-    setUser((prev) => {
-      if (!prev) return null;
-      const updated = { ...prev, ...partialUser };
-      if (typeof window !== "undefined") {
-        localStorage.setItem("user_info", JSON.stringify(updated));
-      }
-      return updated;
-    });
-  };
+  const updateUser = mergeUser;
+  const applyAccount = (account: Account) => mergeUser(accountToUser(account));
 
   return (
     <AuthContext.Provider
@@ -220,6 +251,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasRole,
         refreshPermissions,
         updateUser,
+        applyAccount,
       }}
     >
       {children}

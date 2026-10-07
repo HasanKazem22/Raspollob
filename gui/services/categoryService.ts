@@ -21,6 +21,13 @@ export const categoryService = {
     });
   },
 
+  /** Public: one active category by its slug (or id); 404 when missing or hidden */
+  async getCategory(slug: string): Promise<ApiResponse<Category>> {
+    return apiFetch(`/categories/${encodeURIComponent(slug)}`, {
+      requireAuth: false,
+    });
+  },
+
   /** Public: Fetch categories configured to show in Navbar */
   async getNavbarCategories(): Promise<ApiResponse<Category[]>> {
     return apiFetch("/categories/navbar", {

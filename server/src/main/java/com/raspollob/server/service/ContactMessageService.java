@@ -5,6 +5,7 @@ import com.raspollob.server.dto.ContactMessageResponse;
 import com.raspollob.server.entity.ContactMessage;
 import com.raspollob.server.repository.ContactMessageRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +30,8 @@ public class ContactMessageService {
 
     @Transactional(readOnly = true)
     public List<ContactMessageResponse> getAllMessages() {
-        return repository.findAll().stream()
+        // Newest first; id breaks ties between messages sent in the same instant
+        return repository.findAll(Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))).stream()
                 .map(m -> ContactMessageResponse.builder()
                         .id(m.getId())
                         .name(m.getName())

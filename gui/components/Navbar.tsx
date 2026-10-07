@@ -8,6 +8,8 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { categoryService, Category } from "@/services/categoryService";
+import { resolveMediaUrl } from "@/lib/api";
+import { SearchPanel } from "@/components/shop/SearchPanel";
 import {
   LuSearch,
   LuUser,
@@ -21,6 +23,13 @@ import {
 export function Navbar() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  // Close the search panel whenever the page changes
+  const [searchPath, setSearchPath] = useState(pathname);
+  if (pathname !== searchPath) {
+    setSearchPath(pathname);
+    setIsSearchOpen(false);
+  }
   const [navbarCategories, setNavbarCategories] = useState<Category[]>([]);
 
   const { isAuthenticated, canAccessAdmin, user, logout } = useAuth();
@@ -60,8 +69,8 @@ export function Navbar() {
             href="/"
             className={`text-[15px] tracking-wide transition-colors ${
               pathname === "/"
-                ? "text-[#5c8b29] font-bold"
-                : "text-zinc-600 font-medium hover:text-[#5c8b29]"
+                ? "text-brand font-bold"
+                : "text-zinc-600 font-medium hover:text-brand"
             }`}
           >
             Home
@@ -71,8 +80,13 @@ export function Navbar() {
           {navbarCategories.map((cat) => (
             <Link
               key={cat.id}
-              href={`/?category=${cat.slug}`}
-              className={`text-[15px] tracking-wide transition-colors text-zinc-600 font-medium hover:text-[#5c8b29]`}
+              href={`/category/${cat.slug}`}
+              aria-current={pathname === `/category/${cat.slug}` ? "page" : undefined}
+              className={`text-[15px] tracking-wide transition-colors ${
+                pathname === `/category/${cat.slug}`
+                  ? "text-brand font-bold"
+                  : "text-zinc-600 font-medium hover:text-brand"
+              }`}
             >
               {cat.name}
             </Link>
@@ -84,8 +98,8 @@ export function Navbar() {
               href="/admin"
               className={`text-[15px] tracking-wide transition-colors ${
                 pathname.startsWith("/admin")
-                  ? "text-[#5c8b29] font-bold"
-                  : "text-zinc-600 font-medium hover:text-[#5c8b29]"
+                  ? "text-brand font-bold"
+                  : "text-zinc-600 font-medium hover:text-brand"
               }`}
             >
               Admin
@@ -96,7 +110,16 @@ export function Navbar() {
         {/* Right Side: Action Icons */}
         <div className="flex items-center gap-5">
           <Tooltip content="Search">
-            <button type="button" aria-label="Search" className="text-zinc-700 hover:text-[#5c8b29] transition-colors cursor-pointer">
+            <button
+              type="button"
+              aria-label="Search"
+              aria-expanded={isSearchOpen}
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setIsSearchOpen((open) => !open);
+              }}
+              className={`transition-colors cursor-pointer ${isSearchOpen ? "text-brand" : "text-zinc-700 hover:text-brand"}`}
+            >
               <LuSearch className="w-[18px] h-[18px] md:w-5 md:h-5" strokeWidth={1.5} />
             </button>
           </Tooltip>
@@ -107,11 +130,11 @@ export function Navbar() {
                 <Link
                   href="/profile"
                   aria-label="Profile"
-                  className="flex items-center text-zinc-700 hover:text-[#5c8b29] transition-colors rounded-full border border-zinc-200 hover:border-[#5c8b29]"
+                  className="flex items-center text-zinc-700 hover:text-brand transition-colors rounded-full border border-zinc-200 hover:border-brand"
                 >
                   {user?.avatarUrl || user?.avatar ? (
                     <img
-                      src={user.avatarUrl || user.avatar}
+                      src={resolveMediaUrl(user.avatarUrl || user.avatar || "")}
                       alt=""
                       className="w-[20px] h-[20px] md:w-6 md:h-6 object-cover rounded-full"
                     />
@@ -135,7 +158,7 @@ export function Navbar() {
             </div>
           ) : (
             <Tooltip content="Login">
-              <Link href="/login" aria-label="Login" className="text-zinc-700 hover:text-[#5c8b29] transition-colors">
+              <Link href="/login" aria-label="Login" className="text-zinc-700 hover:text-brand transition-colors">
                 <LuUser className="w-[18px] h-[18px] md:w-5 md:h-5" strokeWidth={1.5} />
               </Link>
             </Tooltip>
@@ -145,11 +168,11 @@ export function Navbar() {
             <Link
               href="/checkout"
               aria-label={cartCount > 0 ? `Cart, ${cartCount} items` : "Cart"}
-              className="relative text-zinc-700 hover:text-[#5c8b29] transition-colors"
+              className="relative text-zinc-700 hover:text-brand transition-colors"
             >
               <LuShoppingCart className="w-[18px] h-[18px] md:w-5 md:h-5" strokeWidth={1.5} />
               {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-[#5c8b29] text-white text-[9px] font-bold w-[18px] h-[18px] rounded-full flex items-center justify-center border-2 border-[#FDFBF9]">
+                <span className="absolute -top-1.5 -right-2 bg-brand text-white text-[9px] font-bold w-[18px] h-[18px] rounded-full flex items-center justify-center border-2 border-background">
                   {cartCount}
                 </span>
               )}
@@ -173,6 +196,8 @@ export function Navbar() {
       </div>
 
       {/* Mobile Drawer Overlay */}
+      {isSearchOpen && <SearchPanel onClose={() => setIsSearchOpen(false)} />}
+
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 z-[55] bg-black/40 backdrop-blur-sm md:hidden"
@@ -197,7 +222,7 @@ export function Navbar() {
           </button>
         </div>
         
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#FDFBF9]">
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-background">
           <div className="flex flex-col space-y-1">
             <Link
               href="/"
@@ -226,11 +251,15 @@ export function Navbar() {
                 {navbarCategories.map((cat) => (
                   <Link
                     key={cat.id}
-                    href={`/?category=${cat.slug}`}
+                    href={`/category/${cat.slug}`}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold ${
+                      pathname === `/category/${cat.slug}`
+                        ? "bg-brand/10 text-brand-strong"
+                        : "text-zinc-600 hover:bg-zinc-100"
+                    }`}
                   >
-                    <LuLayers className="w-3.5 h-3.5 text-[#5c8b29]" />
+                    <LuLayers className="w-3.5 h-3.5 text-brand" />
                     <span>{cat.name}</span>
                   </Link>
                 ))}

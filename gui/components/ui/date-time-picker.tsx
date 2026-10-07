@@ -128,7 +128,7 @@ export function DateTimePicker({
             className={cn(
               "h-9 w-full flex items-center gap-2 rounded-md border border-zinc-200 bg-transparent pl-3 pr-8 text-sm text-left transition-colors outline-none cursor-pointer",
               "hover:border-zinc-300 focus-visible:border-zinc-400 focus-visible:ring-1 focus-visible:ring-zinc-400/50 disabled:opacity-50 disabled:cursor-not-allowed",
-              open && "border-[#5c8b29] ring-1 ring-[#5c8b29]/30"
+              open && "border-brand ring-1 ring-brand/30"
             )}
           >
             <LuCalendar className="w-4 h-4 shrink-0 text-zinc-400" />
@@ -212,7 +212,7 @@ export function DateTimePicker({
                   className={cn(
                     "relative h-9 rounded-lg text-xs font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-30",
                     isSelected
-                      ? "bg-[#5c8b29] text-white shadow-sm"
+                      ? "bg-brand text-white shadow-sm"
                       : inMonth
                         ? "text-zinc-800 hover:bg-zinc-100"
                         : "text-zinc-300 hover:bg-zinc-50"
@@ -220,7 +220,7 @@ export function DateTimePicker({
                 >
                   {d}
                   {isToday && !isSelected && (
-                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#5c8b29]" />
+                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-brand" />
                   )}
                 </button>
               );
@@ -264,7 +264,7 @@ export function DateTimePicker({
                     onClick={() => setTime({ hour: to24(hour12 ?? (defaultHour % 12 || 12), period === "PM") })}
                     className={cn(
                       "px-2.5 h-7 rounded-md text-[11px] font-bold transition-colors cursor-pointer",
-                      active ? "bg-[#5c8b29] text-white shadow-xs" : "text-zinc-500 hover:text-zinc-900"
+                      active ? "bg-brand text-white shadow-xs" : "text-zinc-500 hover:text-zinc-900"
                     )}
                   >
                     {period}
@@ -290,14 +290,14 @@ export function DateTimePicker({
                 setViewYear(now.getFullYear());
                 setViewMonth(now.getMonth());
               }}
-              className="text-xs font-semibold text-[#5c8b29] hover:underline cursor-pointer"
+              className="text-xs font-semibold text-brand hover:underline cursor-pointer"
             >
               Now
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="h-8 px-4 rounded-lg bg-[#5c8b29] hover:bg-[#4a7021] text-white text-xs font-bold cursor-pointer"
+              className="h-8 px-4 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-bold cursor-pointer"
             >
               Done
             </button>

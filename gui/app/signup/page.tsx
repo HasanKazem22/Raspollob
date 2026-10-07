@@ -99,7 +99,7 @@ export default function SignupPage() {
           </p>
           <a
             href="/login"
-            className="w-full flex items-center justify-center bg-[#5c8b29] hover:bg-[#4a7021] dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-black font-bold py-2.5 rounded-xl transition-all duration-200 shadow-lg text-sm tracking-wide"
+            className="w-full flex items-center justify-center bg-brand hover:bg-brand-hover dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-black font-bold py-2.5 rounded-xl transition-all duration-200 shadow-lg text-sm tracking-wide"
           >
             Continue to Login
           </a>
@@ -240,7 +240,7 @@ export default function SignupPage() {
         <button
           type="submit"
           disabled={isSubmitting || passwordsMismatch}
-          className="w-full flex items-center justify-center gap-2 bg-[#5c8b29] hover:bg-[#4a7021] dark:bg-white dark:hover:bg-zinc-200 disabled:opacity-60 text-white dark:text-black font-bold py-2.5 rounded-xl transition-all duration-200 shadow-lg shadow-zinc-950/10 dark:shadow-white/10 active:scale-[0.99] text-sm tracking-wide cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 bg-brand hover:bg-brand-hover dark:bg-white dark:hover:bg-zinc-200 disabled:opacity-60 text-white dark:text-black font-bold py-2.5 rounded-xl transition-all duration-200 shadow-lg shadow-zinc-950/10 dark:shadow-white/10 active:scale-[0.99] text-sm tracking-wide cursor-pointer"
         >
           {isSubmitting ? (
             <><LuLoader className="w-4 h-4 animate-spin" /><span>Creating account…</span></>

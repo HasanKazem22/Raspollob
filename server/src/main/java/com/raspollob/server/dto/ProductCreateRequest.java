@@ -27,10 +27,7 @@ public class ProductCreateRequest {
     @Size(max = 40, message = "Size can be at most 40 characters")
     private String sizeLabel;
 
-    /**
-     * Creates this product as another size of an existing one: it joins that product's size family
-     * and shares its name, description and category.
-     */
+    /** "Same product as": id of a product to link sizes with (shown together in the size picker) */
     private Long sizeOf;
 
     @NotBlank(message = "Product description is required")

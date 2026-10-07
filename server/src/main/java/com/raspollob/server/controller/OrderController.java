@@ -6,7 +6,11 @@ import com.raspollob.server.dto.order.CheckoutRequest;
 import com.raspollob.server.dto.order.OrderQuoteRequest;
 import com.raspollob.server.dto.order.OrderQuoteResponse;
 import com.raspollob.server.dto.order.OrderResponse;
+import com.raspollob.server.exception.ResourceNotFoundException;
+import com.raspollob.server.exception.TooManyRequestsException;
+import com.raspollob.server.security.FailedAttemptLimiter;
 import com.raspollob.server.service.OrderService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     private final OrderService orderService;
+    private final FailedAttemptLimiter orderTrackingLimiter;
 
     /** Server-side pricing for the checkout page (current prices, shipping, promo). */
     @PostMapping("/quote")
@@ -35,11 +40,24 @@ public class OrderController {
                 .body(ApiResponse.success(order, "Order placed successfully"));
     }
 
-    /** Order lookup for customers: order number + the phone used at checkout. */
+    /**
+     * Order lookup for customers: order number + the phone used at checkout.
+     * Wrong combinations are counted per IP, so order numbers can't be found by trying many.
+     */
     @GetMapping("/track")
     public ResponseEntity<ApiResponse<OrderResponse>> track(
             @RequestParam String orderNumber,
-            @RequestParam String phone) {
-        return ResponseEntity.ok(ApiResponse.success(orderService.track(orderNumber, phone), "Order found"));
+            @RequestParam String phone,
+            HttpServletRequest request) {
+        String caller = request.getRemoteAddr(); // real client IP behind Nginx (forward-headers-strategy)
+        if (orderTrackingLimiter.isBlocked(caller)) {
+            throw new TooManyRequestsException("Too many attempts. Please wait a few minutes and try again.");
+        }
+        try {
+            return ResponseEntity.ok(ApiResponse.success(orderService.track(orderNumber, phone), "Order found"));
+        } catch (ResourceNotFoundException e) {
+            orderTrackingLimiter.recordFailure(caller);
+            throw e;
+        }
     }
 }

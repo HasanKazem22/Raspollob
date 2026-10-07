@@ -52,7 +52,7 @@ export function SegmentedTabs<T extends string>({
               "flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer select-none",
               fullWidth && "flex-1",
               isActive
-                ? "bg-[#5c8b29] text-white shadow-xs"
+                ? "bg-brand text-white shadow-xs"
                 : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60"
             )}
           >

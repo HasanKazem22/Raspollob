@@ -4,6 +4,11 @@
 
 @custom-variant dark (&:is(.never-dark *));
 @theme inline {
+  /* Brand tokens: bg-brand, text-brand, bg-brand/10, hover:bg-brand-hover, text-brand-strong … */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-foreground: var(--brand-foreground);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
@@ -49,6 +54,20 @@
 }
 
 :root {
+  /*
+   * BRAND COLOUR: the single source of truth for the whole site.
+   * Admins can change it in Admin → Home → Brand & Colors; StoreConfigContext writes the chosen
+   * colour into --brand at runtime. Everything else is derived from it, so one change re-themes
+   * every button, link, badge and tint.
+   */
+  --brand: #5c8b29;
+  /* Hover / pressed state */
+  --brand-hover: color-mix(in oklab, var(--brand) 82%, black);
+  /* Brand-coloured text on light brand tints (stays readable on bg-brand/10) */
+  --brand-strong: color-mix(in oklab, var(--brand) 78%, black);
+  /* Text on solid brand backgrounds */
+  --brand-foreground: #ffffff;
+
   --background: #FDFBF9;
   --foreground: oklch(0.145 0 0);
   --card: oklch(0.99 0.002 76); /* Pristine soft alabaster for cards */
@@ -114,7 +133,7 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: #FDFBF9;
+    background: var(--background);
   }
 
   ::-webkit-scrollbar-thumb {

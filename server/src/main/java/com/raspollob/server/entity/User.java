@@ -35,6 +35,17 @@ public class User extends BaseEntity implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+    /** Default delivery details, used to prefill checkout */
+    @Column(length = 100)
+    private String city;
+
+    @Column(length = 500)
+    private String address;
+
+    /** Profile photo ("/uploads/uuid.webp"); null shows the initial instead */
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
     @Builder.Default
     private Boolean isActive = true;
 

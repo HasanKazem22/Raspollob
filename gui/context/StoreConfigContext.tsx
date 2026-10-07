@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { getStoreConfig, StoreConfig } from "@/services/configService";
 import { RemoteStatus, statusFromError } from "@/hooks/useRemoteData";
+import { applyBrandColor } from "@/lib/brand";
 
 interface StoreConfigContextType {
   /** null until loaded, or if the request failed */
@@ -25,6 +26,8 @@ export function StoreConfigProvider({ children }: { children: React.ReactNode })
         .then((data) => {
           setConfig(data);
           setStatus("success");
+          // The admin-chosen brand colour re-themes the whole site (design token --brand)
+          applyBrandColor(data.primaryColor);
         })
         .catch((err) => {
           console.warn("Failed to load store config", err);

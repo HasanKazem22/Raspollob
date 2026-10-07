@@ -7,7 +7,7 @@ interface HomeSectionProps {
   children: React.ReactNode;
 }
 
-export function HomeSection({ title, description, className = "py-16 bg-[#FDFBF9]", children }: HomeSectionProps) {
+export function HomeSection({ title, description, className = "py-16 bg-background", children }: HomeSectionProps) {
   return (
     <section className={className}>
       <div className="container mx-auto px-4 lg:px-8 xl:px-12 max-w-7xl">

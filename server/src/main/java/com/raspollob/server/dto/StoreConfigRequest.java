@@ -17,8 +17,11 @@ import java.util.List;
 public class StoreConfigRequest {
     // Branding & homepage
     private String storeLogo;
+    @jakarta.validation.constraints.Pattern(regexp = "^$|^#[0-9a-fA-F]{6}$", message = "Brand colour must look like #5c8b29")
     private String primaryColor;
     private String secondaryColor;
+    @Size(max = 300, message = "Footer description can be at most 300 characters")
+    private String footerDescription;
     private List<String> heroBannerImages;
     private String promoBannerImage;
     private String categorySectionTitle;
@@ -68,4 +71,21 @@ public class StoreConfigRequest {
     @Size(max = 20)
     private String rocketNumber;
     private String paymentInstructions;
+
+    // Welcome offer popup
+    private Boolean offerEnabled;
+    @Size(max = 500)
+    private String offerImage;
+    @Size(max = 120, message = "Offer title can be at most 120 characters")
+    private String offerTitle;
+    @Size(max = 500, message = "Offer text can be at most 500 characters")
+    private String offerText;
+    @Size(max = 40, message = "Promo code can be at most 40 characters")
+    private String offerPromoCode;
+    @Size(max = 40, message = "Button text can be at most 40 characters")
+    private String offerButtonText;
+    @Size(max = 300, message = "Button link can be at most 300 characters")
+    private String offerButtonLink;
+    private java.time.LocalDateTime offerStartsAt;
+    private java.time.LocalDateTime offerEndsAt;
 }

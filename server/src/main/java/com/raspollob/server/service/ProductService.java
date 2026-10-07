@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.JpaSort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -34,6 +35,16 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     private final CategoryService categoryService;
     private final FileStorageService fileStorageService;
+    private final MediaCleanupService mediaCleanup;
+
+    /** Sort options of the public catalogue (URL value → entity field). */
+    private static final Map<String, String> PUBLIC_SORT_FIELDS = Map.of(
+            "createdAt", "createdAt",
+            "name", "name",
+            "rating", "averageRating");
+    private static final int MAX_PAGE_SIZE = 48;
+    /** The admin table filters and pages in the browser, so it loads the whole catalogue at once */
+    private static final int MAX_ADMIN_PAGE_SIZE = 1000;
 
     // =========================================================================
     // PUBLIC METHODS (Frontend / Catalog / Home)
@@ -55,9 +66,14 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public Page<ProductResponse> getPublicProducts(Long categoryId, String query, int page, int size, String sortBy, String sortDir) {
-        Sort sort = Sort.by(Sort.Direction.fromString(sortDir != null ? sortDir : "DESC"), 
-                            sortBy != null ? sortBy : "createdAt");
-        Pageable pageable = PageRequest.of(page, size, sort);
+        // Only known fields can be sorted on: the values come straight from the URL
+        Sort.Direction direction = "ASC".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Sort primary = "price".equals(sortBy)
+                // What the customer pays: the offer price when there is one
+                ? JpaSort.unsafe(direction, "COALESCE(p.offerPrice, p.sellingPrice)")
+                : Sort.by(direction, PUBLIC_SORT_FIELDS.getOrDefault(sortBy, "createdAt"));
+        Sort sort = primary.and(Sort.by(Sort.Direction.DESC, "id"));
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE), sort);
         return productRepository.findPublicProducts(categoryId, toSearchPattern(query), pageable)
                 .map(this::mapToPublicResponse);
     }
@@ -91,7 +107,9 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Page<AdminProductResponse> getAdminProducts(Long categoryId, String query, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
+        // Newest added first, so editing a product doesn't move it around the list
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_ADMIN_PAGE_SIZE),
+                Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
         return productRepository.findAdminProducts(categoryId, toSearchPattern(query), pageable)
                 .map(this::mapToAdminResponse);
     }
@@ -120,7 +138,7 @@ public class ProductService {
 
     /**
      * Admin: Create Product with uploaded files (Min 2, Max 5 images enforced).
-     * With {@code sizeOf} set, the product becomes another size of that item.
+     * With {@code sizeOf} set, it's linked as another size of that product (shown together in the size picker).
      */
     @Transactional
     public AdminProductResponse createProduct(ProductCreateRequest request, List<MultipartFile> imageFiles) {
@@ -130,19 +148,7 @@ public class ProductService {
         // Pricing Invariant Validation
         validatePricing(request.getBuyingPrice(), request.getSellingPrice(), request.getOfferPrice());
 
-        // Size family: joining another item gives both the same group id
         String sizeLabel = ProductSizes.normalize(request.getSizeLabel());
-        String variantGroup = null;
-        if (request.getSizeOf() != null) {
-            Product base = productRepository.findById(request.getSizeOf())
-                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + request.getSizeOf()));
-            if (base.getSizeLabel() == null) {
-                throw new BadRequestException("Give \"" + base.getName() + "\" a size (for example 250 g) before adding another size.");
-            }
-            variantGroup = base.getVariantGroup() != null ? base.getVariantGroup() : UUID.randomUUID().toString();
-            base.setVariantGroup(variantGroup);
-        }
-        validateSizeInFamily(variantGroup, null, sizeLabel);
 
         // Slug generation (includes the size so every size gets its own address)
         String slug = CategoryService.toSlug(sizeLabel == null ? request.getName() : request.getName() + " " + sizeLabel);
@@ -164,7 +170,6 @@ public class ProductService {
                 .slug(slug)
                 .sku(sku)
                 .sizeLabel(sizeLabel)
-                .variantGroup(variantGroup)
                 .category(category)
                 .description(request.getDescription())
                 .details(request.getDetails())
@@ -216,8 +221,10 @@ public class ProductService {
             product.addImage(pImage);
         }
 
+        if (request.getSizeOf() != null) {
+            linkSizes(product, request.getSizeOf());
+        }
         Product saved = productRepository.save(product);
-        syncSharedDetails(saved);
         log.info("Created product: {} (ID: {}) with {} images", saved.getDisplayName(), saved.getId(), saved.getImages().size());
         return withAdminSizes(saved);
     }
@@ -247,14 +254,14 @@ public class ProductService {
             product.setSku(request.getSku());
         }
 
-        // Size: "" clears it, which is only allowed while the item has no other sizes
+        // Size ("" clears it) and "Same product as" (0 unlinks, null leaves the link as it is)
         if (request.getSizeLabel() != null) {
-            String sizeLabel = ProductSizes.normalize(request.getSizeLabel());
-            if (sizeLabel == null && familyOf(product).size() > 1) {
-                throw new BadRequestException("This item has other sizes, so it needs a size too (for example 250 g).");
-            }
-            validateSizeInFamily(product.getVariantGroup(), product.getId(), sizeLabel);
-            product.setSizeLabel(sizeLabel);
+            product.setSizeLabel(ProductSizes.normalize(request.getSizeLabel()));
+        }
+        if (request.getSizeOf() != null) {
+            linkSizes(product, request.getSizeOf());
+        } else if (product.getVariantGroup() != null) {
+            validateSizeInFamily(product.getVariantGroup(), product.getId(), product.getSizeLabel());
         }
 
         BigDecimal buying = request.getBuyingPrice() != null ? request.getBuyingPrice() : product.getBuyingPrice();
@@ -283,7 +290,6 @@ public class ProductService {
         }
 
         Product updated = productRepository.save(product);
-        syncSharedDetails(updated);
         return withAdminSizes(updated);
     }
 
@@ -301,15 +307,10 @@ public class ProductService {
                 .map(ProductImage::getImageUrl)
                 .toList();
 
-        List<Product> remainingSizes = familyOf(product).stream()
-                .filter(p -> !p.getId().equals(product.getId()))
-                .toList();
-
+        String group = product.getVariantGroup();
         productRepository.delete(product);
-
-        // A size left on its own is a normal single-size item again
-        if (remainingSizes.size() == 1) {
-            remainingSizes.get(0).setVariantGroup(null);
+        if (group != null) {
+            unlinkIfAlone(group, product.getId());
         }
 
         // Delete from disk after DB transaction commits (unless another size still shows the photo)
@@ -333,11 +334,53 @@ public class ProductService {
     // SIZES (each size is its own product; sizes of one item share variantGroup)
     // =========================================================================
 
-    /** Every size of this product's item, itself included. */
-    private List<Product> familyOf(Product product) {
-        return product.getVariantGroup() == null
-                ? List.of(product)
-                : productRepository.findByVariantGroup(product.getVariantGroup());
+    /**
+     * "Same product as": links {@code product} with {@code targetId}'s sizes, or unlinks it when
+     * {@code targetId} is 0. Each linked product stays a normal product with its own details.
+     */
+    private void linkSizes(Product product, long targetId) {
+        String oldGroup = product.getVariantGroup();
+        String newGroup = null;
+
+        if (targetId != 0) {
+            if (product.getId() != null && product.getId() == targetId) {
+                throw new BadRequestException("A product can't be linked to itself.");
+            }
+            Product target = productRepository.findById(targetId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + targetId));
+            if (product.getSizeLabel() == null) {
+                throw new BadRequestException("Enter this product's size (for example 500 g) to link it with its other sizes.");
+            }
+            if (target.getSizeLabel() == null) {
+                throw new BadRequestException("\"" + target.getName() + "\" has no size yet. Give it a size first (for example 250 g).");
+            }
+            if (target.getVariantGroup() != null) {
+                newGroup = target.getVariantGroup();
+                validateSizeInFamily(newGroup, product.getId(), product.getSizeLabel());
+            } else {
+                // First link for the target: it's the only other size to compare with
+                if (product.getSizeLabel().equalsIgnoreCase(target.getSizeLabel())) {
+                    throw new BadRequestException("A linked product already has the size \"" + product.getSizeLabel() + "\".");
+                }
+                newGroup = UUID.randomUUID().toString();
+            }
+            target.setVariantGroup(newGroup);
+        }
+
+        product.setVariantGroup(newGroup);
+        if (oldGroup != null && !oldGroup.equals(newGroup)) {
+            unlinkIfAlone(oldGroup, product.getId());
+        }
+    }
+
+    /** A product left on its own after an unlink or delete is a normal single product again. */
+    private void unlinkIfAlone(String group, Long leavingId) {
+        List<Product> remaining = productRepository.findByVariantGroup(group).stream()
+                .filter(p -> !p.getId().equals(leavingId))
+                .toList();
+        if (remaining.size() == 1) {
+            remaining.get(0).setVariantGroup(null);
+        }
     }
 
     private void validateSizeInFamily(String variantGroup, Long selfId, String sizeLabel) {
@@ -345,29 +388,12 @@ public class ProductService {
             return;
         }
         if (sizeLabel == null) {
-            throw new BadRequestException("Each size needs a name, for example 250 g or 1 kg.");
+            throw new BadRequestException("This product is linked with other sizes, so it needs a size too (for example 250 g).");
         }
         boolean taken = productRepository.findByVariantGroup(variantGroup).stream()
                 .anyMatch(p -> !p.getId().equals(selfId) && sizeLabel.equalsIgnoreCase(p.getSizeLabel()));
         if (taken) {
-            throw new BadRequestException("This item already has a \"" + sizeLabel + "\" size.");
-        }
-    }
-
-    /** Name, description and category are edited once for all sizes of an item. */
-    private void syncSharedDetails(Product source) {
-        if (source.getVariantGroup() == null) {
-            return;
-        }
-        for (Product size : productRepository.findByVariantGroup(source.getVariantGroup())) {
-            if (size.getId().equals(source.getId())) {
-                continue;
-            }
-            size.setName(source.getName());
-            size.setDescription(source.getDescription());
-            size.setDetails(source.getDetails());
-            size.setIngredients(source.getIngredients());
-            size.setCategory(source.getCategory());
+            throw new BadRequestException("A linked product already has the size \"" + sizeLabel + "\".");
         }
     }
 
@@ -398,14 +424,9 @@ public class ProductService {
         return response;
     }
 
-    /** Deletes image files after commit, except ones another product (e.g. another size) still uses. */
+    /** Deletes image files after commit, except ones still shown elsewhere (another product, an old order…). */
     private void deleteFilesIfUnused(List<String> files) {
-        if (files.isEmpty()) {
-            return;
-        }
-        productRepository.flush(); // apply removed image rows before checking what's still referenced
-        Set<String> inUse = new HashSet<>(productRepository.findImageUrlsInUse(files));
-        fileStorageService.deleteFilesAfterCommit(files.stream().filter(f -> !inUse.contains(f)).toList());
+        mediaCleanup.deleteIfUnused(files);
     }
 
     private static String primaryImageOf(Product product) {

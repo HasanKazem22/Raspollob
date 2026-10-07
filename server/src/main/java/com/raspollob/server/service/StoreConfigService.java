@@ -5,19 +5,24 @@ import com.raspollob.server.dto.StoreConfigResponse;
 import com.raspollob.server.dto.CustomerReviewDto;
 import com.raspollob.server.entity.StoreConfig;
 import com.raspollob.server.entity.CustomerReview;
+import com.raspollob.server.exception.BadRequestException;
 import com.raspollob.server.repository.StoreConfigRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class StoreConfigService {
     private final StoreConfigRepository repository;
+    private final MediaCleanupService mediaCleanup;
 
     @Transactional(readOnly = true)
     public StoreConfigResponse getStoreConfig() {
@@ -53,10 +58,11 @@ public class StoreConfigService {
     @Transactional
     public StoreConfigResponse updateStoreConfig(StoreConfigRequest request) {
         StoreConfig config = loadConfig();
+        Set<String> imagesBefore = imagesOf(config);
 
         // Branding & homepage
         config.setStoreLogo(request.getStoreLogo());
-        config.setPrimaryColor(request.getPrimaryColor());
+        config.setPrimaryColor(trimToNull(request.getPrimaryColor()));
         config.setSecondaryColor(request.getSecondaryColor());
         config.setHeroBannerImages(request.getHeroBannerImages());
         config.setPromoBannerImage(request.getPromoBannerImage());
@@ -90,6 +96,7 @@ public class StoreConfigService {
         config.setStorePhone(request.getStorePhone());
         config.setStoreEmail(request.getStoreEmail());
         config.setStoreHours(request.getStoreHours());
+        config.setFooterDescription(trimToNull(request.getFooterDescription()));
 
         // Checkout & payments
         config.setShippingFeeInsideDhaka(request.getShippingFeeInsideDhaka());
@@ -100,6 +107,8 @@ public class StoreConfigService {
         config.setNagadNumber(trimToNull(request.getNagadNumber()));
         config.setRocketNumber(trimToNull(request.getRocketNumber()));
         config.setPaymentInstructions(request.getPaymentInstructions());
+
+        applyOffer(config, request);
 
         if (request.getCustomerReviews() != null) {
             config.getCustomerReviews().clear();
@@ -115,11 +124,80 @@ public class StoreConfigService {
         }
 
         StoreConfig saved = repository.save(config);
+
+        // Images removed or replaced in this save: delete their files (unless used elsewhere)
+        Set<String> removed = new HashSet<>(imagesBefore);
+        removed.removeAll(imagesOf(saved));
+        mediaCleanup.deleteIfUnused(removed);
+
         return mapToResponse(saved);
     }
 
     private static String trimToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /** Every image the settings point at: logo, banners, offer image and review photos. */
+    static Set<String> imagesOf(StoreConfig c) {
+        Set<String> images = new HashSet<>();
+        images.add(c.getStoreLogo());
+        images.add(c.getPromoBannerImage());
+        images.add(c.getOfferImage());
+        if (c.getHeroBannerImages() != null) {
+            images.addAll(c.getHeroBannerImages());
+        }
+        if (c.getCustomerReviews() != null) {
+            c.getCustomerReviews().forEach(r -> images.add(r.getProfileImage()));
+        }
+        images.remove(null);
+        return images;
+    }
+
+    // --- Welcome offer popup ---------------------------------------------------
+
+    private static void applyOffer(StoreConfig config, StoreConfigRequest request) {
+        boolean enabled = Boolean.TRUE.equals(request.getOfferEnabled());
+        String image = trimToNull(request.getOfferImage());
+        String link = trimToNull(request.getOfferButtonLink());
+        LocalDateTime startsAt = request.getOfferStartsAt();
+        LocalDateTime endsAt = request.getOfferEndsAt();
+
+        if (enabled && image == null) {
+            throw new BadRequestException("Add an offer image before turning the offer popup on.");
+        }
+        if (startsAt != null && endsAt != null && !endsAt.isAfter(startsAt)) {
+            throw new BadRequestException("The offer must end after it starts.");
+        }
+        if (link != null && !isSafeLink(link)) {
+            throw new BadRequestException("The button link must be a page on this site (starting with /) or an https:// address.");
+        }
+
+        config.setOfferEnabled(enabled);
+        config.setOfferImage(image);
+        config.setOfferTitle(trimToNull(request.getOfferTitle()));
+        config.setOfferText(trimToNull(request.getOfferText()));
+        String code = trimToNull(request.getOfferPromoCode());
+        config.setOfferPromoCode(code == null ? null : PromoCodeService.normalize(code));
+        config.setOfferButtonText(trimToNull(request.getOfferButtonText()));
+        config.setOfferButtonLink(link);
+        config.setOfferStartsAt(startsAt);
+        config.setOfferEndsAt(endsAt);
+    }
+
+    /** Same-site paths ("/category/honey", not "//evil.com") or https:// URLs; never javascript: etc. */
+    static boolean isSafeLink(String link) {
+        if (link.startsWith("/")) {
+            return !link.startsWith("//") && !link.startsWith("/\\");
+        }
+        return link.regionMatches(true, 0, "https://", 0, "https://".length()) && link.length() > "https://".length();
+    }
+
+    /** Whether visitors should see the popup right now (store-local time). */
+    static boolean isOfferActive(StoreConfig c, LocalDateTime now) {
+        return Boolean.TRUE.equals(c.getOfferEnabled())
+                && c.getOfferImage() != null
+                && (c.getOfferStartsAt() == null || !now.isBefore(c.getOfferStartsAt()))
+                && (c.getOfferEndsAt() == null || now.isBefore(c.getOfferEndsAt()));
     }
 
     private StoreConfigResponse mapToResponse(StoreConfig config) {
@@ -128,6 +206,7 @@ public class StoreConfigService {
                 .storeLogo(config.getStoreLogo())
                 .primaryColor(config.getPrimaryColor())
                 .secondaryColor(config.getSecondaryColor())
+                .footerDescription(config.getFooterDescription())
                 .heroBannerImages(config.getHeroBannerImages())
                 .promoBannerImage(config.getPromoBannerImage())
                 .categorySectionTitle(config.getCategorySectionTitle())
@@ -162,6 +241,16 @@ public class StoreConfigService {
                 .nagadNumber(config.getNagadNumber())
                 .rocketNumber(config.getRocketNumber())
                 .paymentInstructions(config.getPaymentInstructions())
+                .offerEnabled(Boolean.TRUE.equals(config.getOfferEnabled()))
+                .offerImage(config.getOfferImage())
+                .offerTitle(config.getOfferTitle())
+                .offerText(config.getOfferText())
+                .offerPromoCode(config.getOfferPromoCode())
+                .offerButtonText(config.getOfferButtonText())
+                .offerButtonLink(config.getOfferButtonLink())
+                .offerStartsAt(config.getOfferStartsAt())
+                .offerEndsAt(config.getOfferEndsAt())
+                .offerActive(isOfferActive(config, LocalDateTime.now()))
                 .customerReviews(config.getCustomerReviews() != null ? config.getCustomerReviews().stream()
                         .map(r -> CustomerReviewDto.builder()
                                 .name(r.getName())

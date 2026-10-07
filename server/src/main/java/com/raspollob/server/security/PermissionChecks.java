@@ -4,6 +4,7 @@ import com.raspollob.server.entity.Role;
 import com.raspollob.server.entity.User;
 import com.raspollob.server.repository.UserRepository;
 import com.raspollob.server.service.RolePermissionService;
+import com.raspollob.server.service.UserAdminService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -44,7 +45,7 @@ public class PermissionChecks {
      */
     public boolean canManageUser(Long userId, String action) {
         boolean isCustomer = userRepository.findById(userId)
-                .map(u -> !u.getRoles().isEmpty() && u.getRoles().stream().allMatch(r -> PermissionCatalog.CUSTOMER.equals(r.getName())))
+                .map(u -> UserAdminService.kindOf(u) == UserAdminService.Kind.CUSTOMER)
                 .orElse(false);
         return has("userRoleSetup.subModules." + (isCustomer ? "customerUser" : "systemUser") + ".actions." + action);
     }

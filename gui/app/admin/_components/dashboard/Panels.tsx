@@ -60,8 +60,8 @@ const COVERED_BY_TASKS = new Set(["PENDING_OVERDUE", "VERIFY_PAYMENTS", "UNREAD_
 const SUGGESTION_STYLE: Record<InsightLevel, { icon: IconType; label: string; className: string }> = {
   CRITICAL: { icon: LuCircleAlert, label: "Urgent", className: "bg-red-50 text-red-600" },
   WARNING: { icon: LuTriangleAlert, label: "Important", className: "bg-amber-50 text-amber-700" },
-  TIP: { icon: LuLightbulb, label: "Tip", className: "bg-[#5c8b29]/10 text-[#4a7021]" },
-  GOOD: { icon: LuTrendingUp, label: "Good news", className: "bg-[#5c8b29]/10 text-[#4a7021]" },
+  TIP: { icon: LuLightbulb, label: "Tip", className: "bg-brand/10 text-brand-strong" },
+  GOOD: { icon: LuTrendingUp, label: "Good news", className: "bg-brand/10 text-brand-strong" },
 };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -118,7 +118,7 @@ export function TodoList({ attention, insights }: { attention: DashboardData["at
   if (tasks.length === 0 && suggestions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center h-full min-h-[200px] gap-2">
-        <span className="w-12 h-12 rounded-2xl bg-[#5c8b29]/10 text-[#4a7021] flex items-center justify-center">
+        <span className="w-12 h-12 rounded-2xl bg-brand/10 text-brand-strong flex items-center justify-center">
           <LuPartyPopper className="w-6 h-6" />
         </span>
         <p className="text-sm font-semibold text-zinc-900">You&apos;re all caught up</p>
@@ -180,7 +180,7 @@ export function TodoList({ attention, insights }: { attention: DashboardData["at
                     </p>
                     <p className="text-xs text-zinc-500 leading-relaxed">{s.message}</p>
                     {s.actionLabel && s.actionHref && canOpenAdminPath(s.actionHref, can) && (
-                      <Link href={s.actionHref} className="text-xs font-semibold text-[#4a7021] hover:underline">
+                      <Link href={s.actionHref} className="text-xs font-semibold text-brand-strong hover:underline">
                         {s.actionLabel} →
                       </Link>
                     )}
@@ -224,7 +224,7 @@ export function BarList({ rows, emptyText }: { rows: BarRow[]; emptyText: string
           </div>
           <div className="h-2 rounded-r bg-zinc-100" aria-hidden>
             <div
-              className="h-full rounded-r bg-[#5c8b29] transition-[width] duration-500"
+              className="h-full rounded-r bg-brand transition-[width] duration-500"
               style={{ width: `${Math.max(2, (row.value / max) * 100)}%` }}
             />
           </div>

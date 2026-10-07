@@ -114,7 +114,7 @@ export function CategoryConfigTab() {
         toast.success("Category updated successfully!");
       } else {
         const res = await categoryService.createCategory(payload);
-        setCategories((prev) => [...prev, res.data]);
+        setCategories((prev) => [res.data, ...prev]);
         toast.success("Category created successfully!");
       }
       setIsModalOpen(false);

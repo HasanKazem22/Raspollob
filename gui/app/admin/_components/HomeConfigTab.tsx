@@ -15,6 +15,7 @@ import {
   LuPalette,
   LuCreditCard,
   LuBanknote,
+  LuGift,
 } from "react-icons/lu";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,10 @@ import { ServerErrorCard } from "@/components/ui/ServerErrorCard";
 import { uploadImage } from "@/services/fileService";
 import { getStoreConfig, updateStoreConfig, parseFaqs, StoreConfig, CustomerReview } from "@/services/configService";
 import { useStoreConfig } from "@/context/StoreConfigContext";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
+import { OfferCard } from "@/components/shop/OfferPopup";
+import { contrastWithWhite, DEFAULT_BRAND_COLOR, isHexColor, MIN_BUTTON_CONTRAST } from "@/lib/brand";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { PERM } from "@/lib/permissions";
 
@@ -83,7 +88,7 @@ function AddItemButton({ onClick, label }: { onClick: () => void; label: string 
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 text-xs font-bold text-zinc-500 hover:border-[#5c8b29] hover:text-[#5c8b29] hover:bg-[#5c8b29]/5 transition-all cursor-pointer"
+        className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 text-xs font-bold text-zinc-500 hover:border-brand hover:text-brand hover:bg-brand/5 transition-all cursor-pointer"
       >
         <LuPlus className="w-3.5 h-3.5" />
         {label}
@@ -127,17 +132,86 @@ const SECTION_FIELDS: {
   },
 ];
 
-function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+/** Ready-made brand colours that work well with white button text */
+const BRAND_SWATCHES = ["#5c8b29", "#2f7d4f", "#0f766e", "#1d4ed8", "#6d28d9", "#be123c", "#c2410c", "#854d0e"];
+
+/**
+ * Brand colour editor. The colour becomes the site-wide design token --brand; the preview applies it
+ * to a small sample (CSS variables cascade), so admins see the result before saving.
+ */
+function BrandColorField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const color = isHexColor(value) ? value : DEFAULT_BRAND_COLOR;
+  const valid = !value || isHexColor(value);
+  const lowContrast = isHexColor(value) && contrastWithWhite(value) < MIN_BUTTON_CONTRAST;
+
   return (
-    <FormField label={label}>
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-9 h-9 shrink-0 rounded-md cursor-pointer border border-zinc-200 p-0.5 bg-white"
-        />
-        <Input value={value} onChange={(e) => onChange(e.target.value)} className="font-mono" />
+    <FormField
+      label="Brand colour"
+      hint="Used for buttons, links, badges and highlights across the whole store and admin panel."
+    >
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={color}
+            onChange={(e) => onChange(e.target.value)}
+            aria-label="Pick brand colour"
+            className="w-10 h-10 shrink-0 rounded-lg cursor-pointer border border-zinc-200 p-0.5 bg-white"
+          />
+          <Input
+            value={value}
+            onChange={(e) => onChange(e.target.value.trim())}
+            placeholder={DEFAULT_BRAND_COLOR}
+            maxLength={7}
+            className="font-mono w-32"
+          />
+          {value && value.toLowerCase() !== DEFAULT_BRAND_COLOR && (
+            <button
+              type="button"
+              onClick={() => onChange(DEFAULT_BRAND_COLOR)}
+              className="text-xs font-semibold text-zinc-500 hover:text-zinc-800 cursor-pointer"
+            >
+              Reset to default
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {BRAND_SWATCHES.map((swatch) => (
+            <button
+              key={swatch}
+              type="button"
+              onClick={() => onChange(swatch)}
+              aria-label={`Use ${swatch}`}
+              className={cn(
+                "w-7 h-7 rounded-full border-2 cursor-pointer transition-transform hover:scale-110",
+                color.toLowerCase() === swatch ? "border-zinc-900 ring-2 ring-white ring-inset" : "border-white shadow"
+              )}
+              style={{ background: swatch }}
+            />
+          ))}
+        </div>
+
+        {!valid && <p className="text-xs font-medium text-red-600">Enter a colour like #5c8b29.</p>}
+        {lowContrast && (
+          <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            This colour is light, so white text on buttons may be hard to read. A darker shade is recommended.
+          </p>
+        )}
+
+        {/* Live preview: the sample uses the chosen colour through the same tokens as the site */}
+        <div
+          className="rounded-xl border border-zinc-200 bg-background p-4 flex flex-wrap items-center gap-3"
+          style={{ ["--brand" as string]: color }}
+        >
+          <span className="h-9 px-4 rounded-full bg-brand text-white text-xs font-bold inline-flex items-center">Add to Cart</span>
+          <span className="h-9 px-4 rounded-full border border-brand text-brand text-xs font-bold inline-flex items-center">Outline</span>
+          <span className="px-2 py-0.5 rounded-full bg-brand/10 text-brand-strong text-[11px] font-bold">250 g</span>
+          <span className="text-xs font-semibold text-brand underline underline-offset-2">A link</span>
+          <span className="w-8 h-8 rounded-lg bg-brand/10 text-brand flex items-center justify-center">
+            <LuPalette className="w-4 h-4" />
+          </span>
+        </div>
       </div>
     </FormField>
   );
@@ -187,18 +261,21 @@ function BannerConfigModal({ isOpen, onClose, config, setConfig, onSave, isSavin
               />
             </FormField>
 
-            <div className="grid grid-cols-2 gap-3">
-              <ColorField
-                label="Main Base Color"
-                value={config.primaryColor || "#5c8b29"}
-                onChange={(v) => setConfig({ ...config, primaryColor: v })}
+            <FormField label="Footer description" optional hint="Shown under the logo in the site footer.">
+              <Textarea
+                rows={2}
+                value={config.footerDescription ?? ""}
+                onChange={(e) => setConfig({ ...config, footerDescription: e.target.value })}
+                placeholder="Your trusted source for pure honey, organic oils, and premium quality ghee."
+                maxLength={300}
+                className="resize-none"
               />
-              <ColorField
-                label="Secondary Color (Buttons)"
-                value={config.secondaryColor || "#ff9800"}
-                onChange={(v) => setConfig({ ...config, secondaryColor: v })}
-              />
-            </div>
+            </FormField>
+
+            <BrandColorField
+              value={config.primaryColor ?? ""}
+              onChange={(v) => setConfig({ ...config, primaryColor: v })}
+            />
           </div>
         )}
 
@@ -606,9 +683,169 @@ function CheckoutConfigModal({ isOpen, onClose, config, setConfig, onSave, isSav
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Offer popup
+// ─────────────────────────────────────────────────────────────────────────────
+
+type OfferState = "off" | "scheduled" | "live" | "ended" | "incomplete";
+
+/** What visitors see right now, by the admin's own clock (the server decides for real). */
+function offerState(c: StoreConfig): OfferState {
+  if (!c.offerEnabled) return "off";
+  if (!c.offerImage) return "incomplete";
+  const now = Date.now();
+  if (c.offerStartsAt && now < new Date(c.offerStartsAt).getTime()) return "scheduled";
+  if (c.offerEndsAt && now >= new Date(c.offerEndsAt).getTime()) return "ended";
+  return "live";
+}
+
+const OFFER_STATE_STYLE: Record<OfferState, { label: string; className: string }> = {
+  off: { label: "Off", className: "bg-zinc-100 text-zinc-500" },
+  incomplete: { label: "Needs an image", className: "bg-amber-50 text-amber-700" },
+  scheduled: { label: "Scheduled", className: "bg-sky-50 text-sky-700" },
+  live: { label: "Live now", className: "bg-brand/10 text-brand-strong" },
+  ended: { label: "Ended", className: "bg-zinc-100 text-zinc-500" },
+};
+
+function OfferStatusPill({ config }: { config: StoreConfig }) {
+  const style = OFFER_STATE_STYLE[offerState(config)];
+  return (
+    <span className={`inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${style.className}`}>
+      {style.label}
+    </span>
+  );
+}
+
+function OfferConfigModal({ isOpen, onClose, config, setConfig, onSave, isSaving }: ConfigModalProps) {
+  const [showPreview, setShowPreview] = useState(false);
+  const set = (patch: Partial<StoreConfig>) => setConfig({ ...config, ...patch });
+  const state = offerState(config);
+  const style = OFFER_STATE_STYLE[state];
+  const startsAt = (config.offerStartsAt ?? "").slice(0, 16);
+  const endsAt = (config.offerEndsAt ?? "").slice(0, 16);
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      title="Offer Popup"
+      description="Shown to each visitor once a day while it's on, never during checkout."
+      onSave={onSave}
+      isLoading={isSaving}
+      size="lg"
+    >
+      <div className="space-y-5">
+        <SwitchCard
+          icon={<LuGift className="w-4 h-4" />}
+          title="Show the offer popup"
+          description={`Status: ${style.label}`}
+          checked={!!config.offerEnabled}
+          onChange={(v) => set({ offerEnabled: v })}
+          disabled={!onSave}
+        />
+
+        <FormField label="Offer image" required hint="Square or portrait images look best, e.g. 1080 × 1080 px.">
+          <ImageInput
+            value={config.offerImage ?? ""}
+            onUpload={uploadImage}
+            onChange={(url) => set({ offerImage: url })}
+            onRemove={() => set({ offerImage: null })}
+            size="lg"
+            disabled={!onSave}
+          />
+        </FormField>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FormField label="Title" optional>
+            <Input
+              value={config.offerTitle ?? ""}
+              onChange={(e) => set({ offerTitle: e.target.value })}
+              placeholder="e.g. Eid Special: 20% off"
+              maxLength={120}
+            />
+          </FormField>
+          <FormField label="Promo code" optional hint="Customers can copy it in the popup.">
+            <Input
+              value={config.offerPromoCode ?? ""}
+              onChange={(e) => set({ offerPromoCode: e.target.value.toUpperCase() })}
+              placeholder="e.g. EID20"
+              maxLength={40}
+              className="font-mono uppercase"
+            />
+          </FormField>
+        </div>
+
+        <FormField label="Message" optional>
+          <Textarea
+            rows={2}
+            value={config.offerText ?? ""}
+            onChange={(e) => set({ offerText: e.target.value })}
+            placeholder="e.g. On all honey and oils until Eid. Free delivery over Tk 2000."
+            maxLength={500}
+            className="resize-none"
+          />
+        </FormField>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FormField label="Button text" optional>
+            <Input
+              value={config.offerButtonText ?? ""}
+              onChange={(e) => set({ offerButtonText: e.target.value })}
+              placeholder="e.g. Shop now"
+              maxLength={40}
+            />
+          </FormField>
+          <FormField label="Button link" optional hint="A page on this site, like /category/natural-honey">
+            <Input
+              value={config.offerButtonLink ?? ""}
+              onChange={(e) => set({ offerButtonLink: e.target.value })}
+              placeholder="/category/natural-honey"
+              maxLength={300}
+            />
+          </FormField>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FormField label="Starts" optional hint="Empty = from now">
+            <DateTimePicker value={startsAt} onChange={(v) => set({ offerStartsAt: v || null })} placeholder="From now" />
+          </FormField>
+          <FormField label="Ends" optional hint="Empty = until you turn it off">
+            <DateTimePicker
+              value={endsAt}
+              onChange={(v) => set({ offerEndsAt: v || null })}
+              min={startsAt || undefined}
+              defaultTime="23:59"
+              placeholder="No end date"
+            />
+          </FormField>
+        </div>
+
+        {config.offerImage && (
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => setShowPreview((v) => !v)}
+              className="text-xs font-semibold text-brand-strong hover:underline underline-offset-2 cursor-pointer"
+            >
+              {showPreview ? "Hide preview" : "Preview what visitors see"}
+            </button>
+            {showPreview && (
+              <div className="rounded-xl bg-zinc-900/60 p-6 flex justify-center">
+                <div className="w-full max-w-sm shadow-2xl rounded-2xl">
+                  <OfferCard offer={config} onClose={() => setShowPreview(false)} onAction={() => undefined} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main HomeConfigTab
 // ─────────────────────────────────────────────────────────────────────────────
-type ActiveModal = "banner" | "reviews" | "footer" | "checkout" | null;
+type ActiveModal = "banner" | "reviews" | "footer" | "checkout" | "offer" | null;
 
 const CONFIG_CARDS = [
   {
@@ -634,6 +871,12 @@ const CONFIG_CARDS = [
     icon: LuCreditCard,
     label: "Checkout & Payments",
     description: "Delivery charges, Cash on Delivery, and bKash / Nagad / Rocket numbers.",
+  },
+  {
+    id: "offer" as const,
+    icon: LuGift,
+    label: "Offer Popup",
+    description: "A welcome offer shown to visitors once a day, with start and end dates.",
   },
 ];
 
@@ -717,7 +960,7 @@ export function HomeConfigTab() {
           View only — your role can see these settings but not change them.
         </p>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {CONFIG_CARDS.map(({ id, icon: Icon, label, description }) => (
           <button
             key={id}
@@ -725,16 +968,17 @@ export function HomeConfigTab() {
             onClick={() => setActiveModal(id)}
             className="group relative bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 transition-all duration-300 cursor-pointer flex flex-col items-start gap-3 text-left"
           >
-            <div className="w-10 h-10 rounded-lg bg-[#5c8b29]/10 text-[#5c8b29] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-lg bg-brand/10 text-brand flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <Icon className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-zinc-900 dark:text-white group-hover:text-[#5c8b29] transition-colors">
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-white group-hover:text-brand transition-colors">
                 {label}
               </h3>
               <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>
+              {id === "offer" && <OfferStatusPill config={config} />}
             </div>
-            <LuChevronRight className="absolute top-4 right-4 w-4 h-4 text-zinc-300 group-hover:text-[#5c8b29] group-hover:translate-x-0.5 transition-all" />
+            <LuChevronRight className="absolute top-4 right-4 w-4 h-4 text-zinc-300 group-hover:text-brand group-hover:translate-x-0.5 transition-all" />
           </button>
         ))}
       </div>
@@ -743,6 +987,7 @@ export function HomeConfigTab() {
       <ReviewsConfigModal isOpen={activeModal === "reviews"} {...modalProps} />
       <FooterConfigModal isOpen={activeModal === "footer"} {...modalProps} />
       <CheckoutConfigModal isOpen={activeModal === "checkout"} {...modalProps} />
+      <OfferConfigModal isOpen={activeModal === "offer"} {...modalProps} />
     </>
   );
 }

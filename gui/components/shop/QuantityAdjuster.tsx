@@ -21,8 +21,8 @@ export function QuantityAdjuster({
   onIncrease,
   disableDecrease = false,
   disableIncrease = false,
-  className = "w-full h-[34px] rounded-full border border-[#5c8b29] overflow-hidden bg-white",
-  buttonClassName = "w-10 h-full bg-[#5c8b29] text-white flex items-center justify-center hover:bg-[#4a7021] transition-colors",
+  className = "w-full h-[34px] rounded-full border border-brand overflow-hidden bg-white",
+  buttonClassName = "w-10 h-full bg-brand text-white flex items-center justify-center hover:bg-brand-hover transition-colors",
   textClassName = "font-bold text-sm text-zinc-900 flex-1 text-center",
   iconClassName = "w-4 h-4"
 }: QuantityAdjusterProps) {

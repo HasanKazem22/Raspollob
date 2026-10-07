@@ -6,4 +6,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ContactMessageRepository extends JpaRepository<ContactMessage, Long> {
+
+    /** Unread customer messages (admin sidebar badge). */
+    long countByIsReadFalse();
 }

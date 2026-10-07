@@ -43,6 +43,20 @@ export const orderService = {
     return res.data;
   },
 
+  // --- Signed-in customers: their own orders ------------------------------------
+
+  /** Orders placed while signed in to this account, newest first. */
+  async myOrders(page = 0, size = 10): Promise<Page<OrderSummary>> {
+    const res: ApiResponse<Page<OrderSummary>> = await apiFetch(`/account/orders?page=${page}&size=${size}`);
+    return res.data;
+  },
+
+  /** One of the customer's own orders (no phone number needed). */
+  async myOrder(orderNumber: string): Promise<Order> {
+    const res: ApiResponse<Order> = await apiFetch(`/account/orders/${encodeURIComponent(orderNumber)}`);
+    return res.data;
+  },
+
   // --- Admin ---------------------------------------------------------------------
 
   async adminList(params: { status?: OrderStatus; query?: string; page?: number; size?: number } = {}): Promise<Page<OrderSummary>> {
@@ -52,6 +66,12 @@ export const orderService = {
     qs.set("page", String(params.page ?? 0));
     qs.set("size", String(params.size ?? 200));
     const res: ApiResponse<Page<OrderSummary>> = await apiFetch(`/admin/orders?${qs}`);
+    return res.data;
+  },
+
+  /** Several orders at once, for printing their delivery slips together (max 50). */
+  async adminSlips(ids: number[]): Promise<Order[]> {
+    const res: ApiResponse<Order[]> = await apiFetch(`/admin/orders/slips?ids=${ids.join(",")}`);
     return res.data;
   },
 

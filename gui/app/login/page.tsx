@@ -89,7 +89,7 @@ export default function LoginPage() {
             </label>
             <Link
               href="#"
-              className="text-[10px] font-semibold text-zinc-400 hover:text-[#5c8b29] dark:hover:text-white uppercase tracking-widest transition-colors"
+              className="text-[10px] font-semibold text-zinc-400 hover:text-brand dark:hover:text-white uppercase tracking-widest transition-colors"
             >
               Forgot?
             </Link>
@@ -130,7 +130,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full flex items-center justify-center gap-2 bg-[#5c8b29] hover:bg-[#4a7021] dark:bg-white dark:hover:bg-zinc-200 disabled:opacity-60 text-white dark:text-black font-bold py-3 rounded-xl transition-all duration-200 shadow-lg shadow-zinc-950/10 dark:shadow-white/10 active:scale-[0.99] text-sm tracking-wide cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 bg-brand hover:bg-brand-hover dark:bg-white dark:hover:bg-zinc-200 disabled:opacity-60 text-white dark:text-black font-bold py-3 rounded-xl transition-all duration-200 shadow-lg shadow-zinc-950/10 dark:shadow-white/10 active:scale-[0.99] text-sm tracking-wide cursor-pointer"
         >
           {isSubmitting ? (
             <>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { parseFaqs } from "@/services/configService";
 import { useStoreConfig } from "@/context/StoreConfigContext";
 import { LuTruck, LuRefreshCcw, LuCircleHelp, LuMapPin, LuChevronDown } from "react-icons/lu";
@@ -23,10 +24,10 @@ function FaqAccordion({ faqsRaw }: { faqsRaw?: string }) {
             onClick={() => setOpenIdx(openIdx === idx ? null : idx)}
             className="w-full flex items-center justify-between py-5 text-left transition-colors group"
           >
-            <span className="font-bold text-zinc-900 text-base pr-4 group-hover:text-[#5c8b29] transition-colors">{faq.q}</span>
+            <span className="font-bold text-zinc-900 text-base pr-4 group-hover:text-brand transition-colors">{faq.q}</span>
             <LuChevronDown
               className={`w-5 h-5 text-zinc-400 shrink-0 transition-transform duration-300 ${
-                openIdx === idx ? "rotate-180 text-[#5c8b29]" : ""
+                openIdx === idx ? "rotate-180 text-brand" : ""
               }`}
             />
           </button>
@@ -98,14 +99,30 @@ function HelpCenterContent() {
           return (
             <section key={idx} id={sec.id} className="scroll-mt-32 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="flex flex-col items-center text-center mb-6">
-                <div className="w-12 h-12 rounded-full bg-[#5c8b29]/10 text-[#5c8b29] flex items-center justify-center mb-3">
+                <div className="w-12 h-12 rounded-full bg-brand/10 text-brand flex items-center justify-center mb-3">
                   <Icon className="w-5 h-5" />
                 </div>
                 <h2 className="text-xl sm:text-2xl font-serif font-bold text-zinc-900">{sec.title}</h2>
               </div>
-              <div className="prose prose-sm prose-zinc max-w-none whitespace-pre-wrap leading-relaxed text-zinc-600 text-center mx-auto">
-                {sec.text || <span className="text-zinc-400 italic">No information provided yet.</span>}
-              </div>
+              {sec.id === "track" ? (
+                <div className="flex flex-col items-center gap-4 text-center">
+                  {sec.text && (
+                    <div className="prose prose-sm prose-zinc max-w-none whitespace-pre-wrap leading-relaxed text-zinc-600 mx-auto">
+                      {sec.text}
+                    </div>
+                  )}
+                  <Link
+                    href="/track-order"
+                    className="inline-flex items-center h-11 px-6 rounded-full bg-brand hover:bg-brand-hover text-white text-sm font-bold transition-colors"
+                  >
+                    Track your order
+                  </Link>
+                </div>
+              ) : (
+                <div className="prose prose-sm prose-zinc max-w-none whitespace-pre-wrap leading-relaxed text-zinc-600 text-center mx-auto">
+                  {sec.text || <span className="text-zinc-400 italic">No information provided yet.</span>}
+                </div>
+              )}
             </section>
           );
         })}
@@ -113,11 +130,11 @@ function HelpCenterContent() {
         {/* FAQs */}
         <section id="faqs" className="scroll-mt-32 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-12">
           <div className="flex flex-col items-center text-center mb-8">
-            <div className="w-12 h-12 rounded-full bg-[#5c8b29]/10 text-[#5c8b29] flex items-center justify-center mb-3">
+            <div className="w-12 h-12 rounded-full bg-brand/10 text-brand flex items-center justify-center mb-3">
               <LuCircleHelp className="w-5 h-5" />
             </div>
             <h2 className="text-xl sm:text-2xl font-serif font-bold text-zinc-900 mb-2">Frequently Asked Questions</h2>
-            <p className="text-zinc-500 text-sm sm:text-base">Can't find what you're looking for? Reach out to us directly.</p>
+            <p className="text-zinc-500 text-sm sm:text-base">Can&apos;t find what you&apos;re looking for? Reach out to us directly.</p>
           </div>
           <FaqAccordion faqsRaw={config?.faqsInfo} />
         </section>
@@ -129,7 +146,7 @@ function HelpCenterContent() {
 
 export default function HelpPage() {
   return (
-    <div className="min-h-screen bg-[#FDFBF9]">
+    <div className="min-h-screen bg-background">
       <Suspense fallback={<div className="min-h-screen" />}>
         <HelpCenterContent />
       </Suspense>

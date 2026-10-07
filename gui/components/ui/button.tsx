@@ -19,7 +19,7 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:ring-destructive/30",
         link: "text-primary underline-offset-4 hover:underline",
-        brand: "bg-[#5c8b29] text-white font-bold shadow-xs hover:bg-[#4a7021]",
+        brand: "bg-brand text-white font-bold shadow-xs hover:bg-brand-hover",
         danger: "bg-red-600 text-white font-bold shadow-xs hover:bg-red-700",
       },
       size: {

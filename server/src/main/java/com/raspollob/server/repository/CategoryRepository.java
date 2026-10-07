@@ -23,5 +23,8 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     List<Category> findAllByIsActiveTrueAndShowInHomeTrueOrderByDisplayOrderAscNameAsc();
 
     List<Category> findAllByOrderByDisplayOrderAscNameAsc();
+
+    /** Admin list: newest first */
+    List<Category> findAllByOrderByCreatedAtDescIdDesc();
 }
 

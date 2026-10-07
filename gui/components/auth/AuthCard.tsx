@@ -22,7 +22,7 @@ export function AuthCard({
   footerActionLink,
 }: AuthCardProps) {
   return (
-    <div className="h-full w-full bg-[#FDFBF9] dark:bg-zinc-950 overflow-y-auto flex flex-col items-center justify-center py-4 px-4 relative">
+    <div className="h-full w-full bg-background dark:bg-zinc-950 overflow-y-auto flex flex-col items-center justify-center py-4 px-4 relative">
 
       {/* Background radial glows */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(0,0,0,0.03),transparent_55%)] dark:bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.03),transparent_55%)] pointer-events-none" />

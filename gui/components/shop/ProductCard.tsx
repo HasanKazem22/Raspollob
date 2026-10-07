@@ -57,7 +57,7 @@ export function ProductCard({ product }: ProductCardProps) {
           {product.name}
         </h3>
         {product.sizeLabel && (
-          <span className="mb-1.5 px-2 py-0.5 rounded-full bg-[#5c8b29]/10 text-[#4a7021] text-[11px] font-bold">
+          <span className="mb-1.5 px-2 py-0.5 rounded-full bg-brand/10 text-brand-strong text-[11px] font-bold">
             {product.sizeLabel}
           </span>
         )}
@@ -90,7 +90,7 @@ export function ProductCard({ product }: ProductCardProps) {
             />
           ) : (
             <button
-              className="w-full h-[34px] rounded-full border border-zinc-300 text-xs font-bold text-zinc-800 hover:bg-[#5c8b29] hover:border-[#5c8b29] hover:text-white transition-colors duration-300 disabled:opacity-50 disabled:pointer-events-none"
+              className="w-full h-[34px] rounded-full border border-zinc-300 text-xs font-bold text-zinc-800 hover:bg-brand hover:border-brand hover:text-white transition-colors duration-300 disabled:opacity-50 disabled:pointer-events-none"
               onClick={() => addToCart(product, 1)}
               disabled={isOutOfStock}
             >

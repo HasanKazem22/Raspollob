@@ -42,6 +42,11 @@ public class FileStorageService {
      * Reduces 3-8MB files down to 80-150KB (90-95% disk saving).
      */
     public String storeFile(MultipartFile file) {
+        return storeFile(file, MAX_WIDTH, MAX_HEIGHT);
+    }
+
+    /** Same as {@link #storeFile(MultipartFile)}, resized to fit within the given box (e.g. 400×400 for avatars). */
+    public String storeFile(MultipartFile file, int maxWidth, int maxHeight) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Cannot store empty file.");
         }
@@ -64,7 +69,7 @@ public class FileStorageService {
 
             // Strategy A: Resize & compress using Thumbnailator
             Thumbnails.of(file.getInputStream())
-                    .size(MAX_WIDTH, MAX_HEIGHT)
+                    .size(maxWidth, maxHeight)
                     .outputFormat(targetFormat)
                     .outputQuality(COMPRESSION_QUALITY)
                     .toFile(targetLocation.toFile());
@@ -145,6 +150,11 @@ public class FileStorageService {
         } else {
             deleteFiles(toDelete);
         }
+    }
+
+    /** Folder that holds uploaded files. */
+    public Path getStorageLocation() {
+        return fileStorageLocation;
     }
 
     /** True for paths produced by {@link #storeFile} ("uuid.webp" or "/uploads/uuid.webp"). */

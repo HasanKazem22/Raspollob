@@ -128,6 +128,30 @@ export interface DataTableProps<T> {
   emptyIcon?: any;
   /** Extra controls in the toolbar, e.g. a filter dropdown */
   toolbarActions?: React.ReactNode;
+  /**
+   * Turns on row selection (a checkbox column), keyed by row.id. The header checkbox selects the
+   * rows on the current page. Selection is kept across search and pages; the parent owns it.
+   */
+  selectedIds?: ReadonlySet<number | string>;
+  onSelectionChange?: (ids: Set<number | string>) => void;
+}
+
+/** Header checkbox with the "some selected" state. */
+function SelectAllCheckbox({ checked, indeterminate, onChange }: { checked: boolean; indeterminate: boolean; onChange: (v: boolean) => void }) {
+  const ref = React.useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label="Select all on this page"
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+      className="w-4 h-4 align-middle accent-brand cursor-pointer"
+    />
+  );
 }
 
 function DataTable<T extends { id?: number | string }>({
@@ -142,7 +166,10 @@ function DataTable<T extends { id?: number | string }>({
   emptyDescription = "There are no records to display.",
   emptyIcon,
   toolbarActions,
+  selectedIds,
+  onSelectionChange,
 }: DataTableProps<T>) {
+  const selectable = !!selectedIds && !!onSelectionChange;
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
@@ -161,6 +188,24 @@ function DataTable<T extends { id?: number | string }>({
     const startIndex = (currentPage - 1) * pageSize;
     return filteredData.slice(startIndex, startIndex + pageSize);
   }, [filteredData, currentPage, pageSize]);
+
+  const pageIds = paginatedData.map((item) => item.id).filter((id): id is number | string => id !== undefined);
+  const selectedOnPage = selectable ? pageIds.filter((id) => selectedIds.has(id)).length : 0;
+
+  const toggleRow = (id: number | string, on: boolean) => {
+    if (!selectable) return;
+    const next = new Set(selectedIds);
+    if (on) next.add(id);
+    else next.delete(id);
+    onSelectionChange(next);
+  };
+
+  const togglePage = (on: boolean) => {
+    if (!selectable) return;
+    const next = new Set(selectedIds);
+    pageIds.forEach((id) => (on ? next.add(id) : next.delete(id)));
+    onSelectionChange(next);
+  };
 
   return (
     <TableLayout
@@ -188,6 +233,15 @@ function DataTable<T extends { id?: number | string }>({
         <Table>
           <TableHeader>
             <TableRow className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800 text-[11px] uppercase tracking-wider font-bold text-zinc-500">
+              {selectable && (
+                <TableHead className="w-10 pl-5">
+                  <SelectAllCheckbox
+                    checked={pageIds.length > 0 && selectedOnPage === pageIds.length}
+                    indeterminate={selectedOnPage > 0 && selectedOnPage < pageIds.length}
+                    onChange={togglePage}
+                  />
+                </TableHead>
+              )}
               {columns.map((col, index) => (
                 <TableHead key={index} className={col.className}>
                   {col.header}
@@ -197,10 +251,24 @@ function DataTable<T extends { id?: number | string }>({
           </TableHeader>
           <TableBody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-xs">
             {paginatedData.map((item, index) => (
-              <TableRow 
-                key={item.id ?? index} 
-                className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors"
+              <TableRow
+                key={item.id ?? index}
+                data-state={selectable && item.id !== undefined && selectedIds.has(item.id) ? "selected" : undefined}
+                className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors data-[state=selected]:bg-brand/5"
               >
+                {selectable && (
+                  <TableCell className="w-10 pl-5">
+                    {item.id !== undefined && (
+                      <input
+                        type="checkbox"
+                        aria-label="Select row"
+                        checked={selectedIds.has(item.id)}
+                        onChange={(e) => toggleRow(item.id!, e.target.checked)}
+                        className="w-4 h-4 align-middle accent-brand cursor-pointer"
+                      />
+                    )}
+                  </TableCell>
+                )}
                 {columns.map((col, colIndex) => (
                   <TableCell key={colIndex} className={col.cellClassName}>
                     {col.cell 

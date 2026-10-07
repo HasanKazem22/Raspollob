@@ -20,6 +20,7 @@ public class StoreConfigResponse {
     private String storeLogo;
     private String primaryColor;
     private String secondaryColor;
+    private String footerDescription;
     private List<String> heroBannerImages;
     private String promoBannerImage;
     private String categorySectionTitle;
@@ -63,6 +64,19 @@ public class StoreConfigResponse {
     private String nagadNumber;
     private String rocketNumber;
     private String paymentInstructions;
+
+    // Welcome offer popup
+    private Boolean offerEnabled;
+    private String offerImage;
+    private String offerTitle;
+    private String offerText;
+    private String offerPromoCode;
+    private String offerButtonText;
+    private String offerButtonLink;
+    private java.time.LocalDateTime offerStartsAt;
+    private java.time.LocalDateTime offerEndsAt;
+    /** Enabled, has an image, and now is inside its dates: the storefront shows the popup */
+    private Boolean offerActive;
 
     private LocalDateTime updatedAt;
 }

@@ -26,6 +26,7 @@ import {
 } from "@/lib/orders";
 import type { Address, Order, OrderStatus, PaymentStatus } from "@/types/order";
 import { PERM } from "@/lib/permissions";
+import { refreshAdminCounts } from "@/components/admin/AdminCounts";
 
 const PAYMENT_STATUSES: PaymentStatus[] = ["UNPAID", "PENDING_VERIFICATION", "PAID", "FAILED", "REFUNDED"];
 
@@ -47,7 +48,7 @@ function AddressBlock({ address }: { address: Address }) {
     <div className="text-xs text-zinc-600 space-y-0.5">
       <p className="font-semibold text-zinc-900">{address.fullName}</p>
       <p>
-        <a href={`tel:${address.phone}`} className="hover:text-[#5c8b29]">{address.phone}</a>
+        <a href={`tel:${address.phone}`} className="hover:text-brand">{address.phone}</a>
         {address.email && <> · {address.email}</>}
       </p>
       <p>{line1}</p>
@@ -113,6 +114,7 @@ export function OrderDetailModal({ orderId, onClose, onUpdated }: OrderDetailMod
     try {
       applyOrder(await orderService.updateStatus(order.id, nextStatus, statusNote.trim() || undefined));
       toast.success(`Order marked as ${ORDER_STATUS_LABEL[nextStatus]}`);
+      refreshAdminCounts();
       setConfirmingStatus(false);
     } catch (err: any) {
       toast.error(err?.message || "Failed to update status");
@@ -216,7 +218,7 @@ export function OrderDetailModal({ orderId, onClose, onUpdated }: OrderDetailMod
                     <dd>{order.shippingFee > 0 ? formatTaka(order.shippingFee) : "Free"}</dd>
                   </div>
                   {order.discountAmount > 0 && (
-                    <div className="flex justify-between text-[#4a7021]">
+                    <div className="flex justify-between text-brand-strong">
                       <dt>Discount {order.promoCode && <span className="font-mono">({order.promoCode})</span>}</dt>
                       <dd>−{formatTaka(order.discountAmount)}</dd>
                     </div>
@@ -361,7 +363,7 @@ export function OrderDetailModal({ orderId, onClose, onUpdated }: OrderDetailMod
                 <ol className="relative border-l border-zinc-200 ml-1.5 space-y-3">
                   {[...order.history].reverse().map((h, i) => (
                     <li key={i} className="pl-4 relative">
-                      <span className="absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full bg-[#5c8b29] ring-2 ring-white" />
+                      <span className="absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full bg-brand ring-2 ring-white" />
                       <div className="flex flex-wrap gap-1.5">
                         {h.status && <OrderStatusBadge status={h.status} />}
                         {h.paymentStatus && <PaymentStatusBadge status={h.paymentStatus} />}

@@ -66,7 +66,7 @@ export function JustForYou() {
           <button
             onClick={loadMore}
             disabled={isLoadingMore}
-            className="px-8 py-3 rounded-full border border-zinc-200 text-sm font-bold text-zinc-700 hover:border-[#5c8b29] hover:text-[#5c8b29] transition-colors cursor-pointer disabled:opacity-60"
+            className="px-8 py-3 rounded-full border border-zinc-200 text-sm font-bold text-zinc-700 hover:border-brand hover:text-brand transition-colors cursor-pointer disabled:opacity-60"
           >
             {isLoadingMore ? "Loading…" : "Load More"}
           </button>

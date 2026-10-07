@@ -19,7 +19,7 @@ function CategoryTile({ category }: { category: Category }) {
   const previewUrl = category.imageUrl ? resolveMediaUrl(category.imageUrl) : "";
   return (
     <>
-      <div className="w-full aspect-square rounded-2xl bg-white border border-zinc-200/80 p-2 flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:shadow-md group-hover:border-[#5c8b29]/40 group-hover:scale-102">
+      <div className="w-full aspect-square rounded-2xl bg-white border border-zinc-200/80 p-2 flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:shadow-md group-hover:border-brand/40 group-hover:scale-102">
         {previewUrl ? (
           <img
             src={previewUrl}
@@ -27,12 +27,12 @@ function CategoryTile({ category }: { category: Category }) {
             className="w-full h-full object-cover rounded-xl transition-transform duration-300 group-hover:scale-108"
           />
         ) : (
-          <div className="w-12 h-12 rounded-full bg-[#5c8b29]/10 text-[#5c8b29] flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+          <div className="w-12 h-12 rounded-full bg-brand/10 text-brand flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
             <LuLayers className="w-6 h-6" />
           </div>
         )}
       </div>
-      <span className="text-xs font-bold text-zinc-700 text-center line-clamp-1 w-full px-1 group-hover:text-[#5c8b29] transition-colors">
+      <span className="text-xs font-bold text-zinc-700 text-center line-clamp-1 w-full px-1 group-hover:text-brand transition-colors">
         {category.name}
       </span>
     </>
@@ -53,7 +53,7 @@ export function ShopByCategory() {
     <HomeSection
       title={config?.categorySectionTitle || "Shop by Category"}
       description={config?.categorySectionDesc || "Discover our farm-fresh, 100% pure organic goods sorted by category."}
-      className="pt-8 pb-16 bg-[#FDFBF9]"
+      className="pt-8 pb-16 bg-background"
     >
       <div className={GRID}>
         {status === "loading" &&
@@ -68,7 +68,7 @@ export function ShopByCategory() {
           visible.map((cat) => (
             <Link
               key={cat.id}
-              href={`/?category=${cat.slug}`}
+              href={`/category/${cat.slug}`}
               className="flex flex-col items-center gap-2.5 group cursor-pointer"
             >
               <CategoryTile category={cat} />
@@ -80,7 +80,7 @@ export function ShopByCategory() {
         <div className="flex justify-center mt-8">
           <button
             onClick={() => setShowAll(!showAll)}
-            className="px-6 py-2.5 rounded-full border border-zinc-200 text-sm font-bold text-zinc-700 hover:border-[#5c8b29] hover:text-[#5c8b29] transition-colors cursor-pointer"
+            className="px-6 py-2.5 rounded-full border border-zinc-200 text-sm font-bold text-zinc-700 hover:border-brand hover:text-brand transition-colors cursor-pointer"
           >
             {showAll ? "Show Less" : "Show More Categories"}
           </button>

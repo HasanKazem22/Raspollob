@@ -13,6 +13,8 @@ services:
     env_file: .env
     environment:
       UPLOAD_DIR: /app/uploads
+      # Dates entered in admin (offers, promo codes) are Bangladesh time
+      TZ: Asia/Dhaka
     volumes:
       # Product photos survive every deploy
       - uploads:/app/uploads

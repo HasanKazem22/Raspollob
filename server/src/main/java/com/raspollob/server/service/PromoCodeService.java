@@ -91,7 +91,7 @@ public class PromoCodeService {
 
     @Transactional(readOnly = true)
     public List<PromoCodeResponse> list() {
-        return promoCodeRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
+        return promoCodeRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))).stream()
                 .map(this::toResponse)
                 .toList();
     }

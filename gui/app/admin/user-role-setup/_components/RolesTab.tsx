@@ -16,9 +16,8 @@ import { RoleItem } from "@/types/userRole";
 import { useAuth } from "@/context/AuthContext";
 import { PERM } from "@/lib/permissions";
 
-/** Built-in roles (mirrors PermissionCatalog.SYSTEM_ROLES): they can't be renamed or deleted. */
-const SYSTEM_ROLES = ["ADMIN", "MANAGER", "CUSTOMER", "GUEST"];
-const isSystemRole = (role: RoleItem) => SYSTEM_ROLES.includes(role.name);
+/** Built-in roles (from the server) can't be renamed or deleted. */
+const isSystemRole = (role: RoleItem) => !!role.builtIn;
 
 export function RolesTab() {
   const { can } = useAuth();

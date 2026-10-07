@@ -12,7 +12,13 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
+    /** New orders waiting for staff (admin sidebar badge). */
+    long countByStatus(OrderStatus status);
+
     Optional<Order> findByOrderNumber(String orderNumber);
+
+    /** A customer's own orders (placed while signed in). */
+    Page<Order> findByUser_Id(Long userId, Pageable pageable);
 
     Optional<Order> findByIdempotencyKey(String idempotencyKey);
 

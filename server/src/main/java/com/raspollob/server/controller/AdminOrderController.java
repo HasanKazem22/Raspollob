@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/admin/orders")
 @RequiredArgsConstructor
@@ -26,6 +28,13 @@ public class AdminOrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         return ResponseEntity.ok(ApiResponse.success(orderService.search(status, query, page, size), "Orders retrieved"));
+    }
+
+    /** Several orders at once for printing their delivery slips together: ?ids=12,15,18 (max 50). */
+    @PreAuthorize("@perm.has('order.actions.printSlip')")
+    @GetMapping("/slips")
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> slips(@RequestParam List<Long> ids) {
+        return ResponseEntity.ok(ApiResponse.success(orderService.getForSlips(ids), "Orders for printing"));
     }
 
     @PreAuthorize("@perm.has('order.isAccess')")

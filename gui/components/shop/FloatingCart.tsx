@@ -36,7 +36,7 @@ function CartRecommendations() {
 
   return (
     <div className="mt-8 bg-zinc-50 -mx-4 px-4 py-6 border-t border-zinc-100">
-      <h3 className="font-bold text-zinc-900 mb-4 border-b-2 border-[#5c8b29] inline-block pb-1">You May Also Like</h3>
+      <h3 className="font-bold text-zinc-900 mb-4 border-b-2 border-brand inline-block pb-1">You May Also Like</h3>
       <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
         {suggestions.map((product) => (
           <div key={product.id} className="w-[200px] shrink-0 bg-white border border-zinc-100 rounded-xl p-3 flex gap-3">
@@ -46,7 +46,7 @@ function CartRecommendations() {
               <span className="text-[10px] text-zinc-500">৳{Number(getCurrentPrice(product)).toFixed(2)}</span>
               <button
                 onClick={() => addToCart(product)}
-                className="text-[10px] bg-[#5c8b29] text-white px-2 py-0.5 rounded flex items-center justify-center gap-1 self-start mt-1"
+                className="text-[10px] bg-brand text-white px-2 py-0.5 rounded flex items-center justify-center gap-1 self-start mt-1"
               >
                 <LuPlus className="w-2 h-2" /> Add
               </button>
@@ -72,13 +72,13 @@ export function FloatingCart() {
       {/* Floating Button */}
       <button 
         onClick={() => setIsOpen(true)}
-        className="fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-[#5c8b29] text-white rounded-l-xl shadow-xl flex flex-col items-center overflow-hidden border border-[#5c8b29] hover:pr-2 transition-all"
+        className="fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-brand text-white rounded-l-xl shadow-xl flex flex-col items-center overflow-hidden border border-brand hover:pr-2 transition-all"
       >
-        <div className="flex flex-col items-center gap-1 p-3 bg-[#5c8b29] w-full">
+        <div className="flex flex-col items-center gap-1 p-3 bg-brand w-full">
           <LuShoppingBag className="w-5 h-5" />
           <span className="text-xs font-bold whitespace-nowrap">{cartCount} Items</span>
         </div>
-        <div className="bg-white text-[#5c8b29] w-full py-2 px-3 text-sm font-bold border-t border-[#5c8b29]">
+        <div className="bg-white text-brand w-full py-2 px-3 text-sm font-bold border-t border-brand">
           ৳{subtotal.toFixed(2)}
         </div>
       </button>
@@ -132,7 +132,7 @@ export function FloatingCart() {
                     onDecrease={() => updateQuantity(item.id, item.quantity - 1)}
                     onIncrease={() => updateQuantity(item.id, item.quantity + 1)}
                     className="flex items-center border border-zinc-200 rounded-full h-8 bg-white"
-                    buttonClassName="px-2 h-full flex items-center justify-center text-zinc-500 hover:text-[#5c8b29]"
+                    buttonClassName="px-2 h-full flex items-center justify-center text-zinc-500 hover:text-brand"
                     textClassName="text-xs font-bold w-4 text-center"
                     iconClassName="w-3 h-3"
                   />
@@ -159,7 +159,7 @@ export function FloatingCart() {
           <Link 
             href="/checkout"
             onClick={() => setIsOpen(false)}
-            className="w-full bg-[#5c8b29] hover:bg-[#4a7021] text-white font-bold py-3.5 rounded-lg transition-colors flex items-center justify-center text-sm"
+            className="w-full bg-brand hover:bg-brand-hover text-white font-bold py-3.5 rounded-lg transition-colors flex items-center justify-center text-sm"
           >
             CHECKOUT
           </Link>

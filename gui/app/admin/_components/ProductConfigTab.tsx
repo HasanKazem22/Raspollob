@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-hot-toast";
-import { LuPackage, LuFlame, LuStar, LuPlus } from "react-icons/lu";
+import { LuPackage, LuFlame, LuStar } from "react-icons/lu";
 import { DataTable, ColumnDef } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,7 +20,7 @@ import { RowEditButton, RowDeleteButton } from "@/components/admin/RowActionButt
 import { productService } from "@/services/productService";
 import { categoryService, Category } from "@/services/categoryService";
 import { uploadImage } from "@/services/fileService";
-import { Product, ProductFormValues, ProductSizeOption } from "@/types/product";
+import { Product, ProductFormValues } from "@/types/product";
 import { resolveMediaUrl } from "@/lib/api";
 import { calcMargin, getCategoryName, getProductName } from "@/lib/product";
 import { cn } from "@/lib/utils";
@@ -29,76 +29,10 @@ import { useAuth } from "@/context/AuthContext";
 
 type ProductFormTab = "general" | "pricing" | "media";
 
-const SIZE_PRESETS = ["250 g", "500 g", "1 kg", "2 kg", "500 ml", "1 L"];
+/** The table searches and pages in the browser, so it needs the whole catalogue */
+const ADMIN_PRODUCT_LIMIT = 1000;
 
-/**
- * The sizes of the item being edited. Each size is its own product (own price, stock and photos);
- * name, category and descriptions are shared and saved to every size.
- */
-function SizeStrip({
-  sizes,
-  currentId,
-  canAdd,
-  addHint,
-  disabled,
-  onOpen,
-  onAdd,
-}: {
-  sizes: ProductSizeOption[];
-  currentId: number | null;
-  canAdd: boolean;
-  addHint?: string;
-  disabled: boolean;
-  onOpen: (id: number) => void;
-  onAdd: () => void;
-}) {
-  return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Sizes of this item</p>
-        {addHint && <p className="text-[11px] text-zinc-500">{addHint}</p>}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {sizes.map((size) => {
-          const isCurrent = size.id === currentId;
-          return (
-            <button
-              key={size.id}
-              type="button"
-              disabled={disabled || isCurrent}
-              onClick={() => onOpen(size.id)}
-              className={cn(
-                "h-8 px-3 rounded-lg border text-xs font-semibold transition-colors",
-                isCurrent
-                  ? "border-[#5c8b29] bg-[#5c8b29]/10 text-[#4a7021] cursor-default"
-                  : "border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-[#5c8b29] cursor-pointer",
-                size.isActive === false && !isCurrent && "opacity-60"
-              )}
-            >
-              {size.sizeLabel || "No size"}
-              {size.isActive === false && <span className="ml-1 font-normal">(hidden)</span>}
-            </button>
-          );
-        })}
-        {currentId === null && (
-          <span className="h-8 px-3 rounded-lg border border-dashed border-[#5c8b29] text-xs font-semibold text-[#4a7021] inline-flex items-center">
-            New size
-          </span>
-        )}
-        {canAdd && (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={onAdd}
-            className="h-8 px-3 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:border-[#5c8b29] hover:text-[#4a7021] inline-flex items-center gap-1 cursor-pointer"
-          >
-            <LuPlus className="w-3.5 h-3.5" /> Add size
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
+const SIZE_PRESETS = ["250 g", "500 g", "1 kg", "2 kg", "500 ml", "1 L"];
 
 /** Number input with a ৳ prefix. */
 function PriceInput({
@@ -142,12 +76,6 @@ export function ProductConfigTab() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<ProductFormTab>("general");
   const [editingId, setEditingId] = useState<number | null>(null);
-  /** Sizes of the item open in the form (from the server) */
-  const [familySizes, setFamilySizes] = useState<ProductSizeOption[]>([]);
-  /** When adding a size: the product it's another size of */
-  const [sizeOf, setSizeOf] = useState<number | null>(null);
-  /** Size label as last saved, so "Add size" knows the current product has one */
-  const [savedSizeLabel, setSavedSizeLabel] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
@@ -157,6 +85,7 @@ export function ProductConfigTab() {
     name: "",
     sku: "",
     sizeLabel: "",
+    sizeOf: "",
     categoryId: categories.length > 0 ? categories[0].id : "",
     sellingPrice: "",
     buyingPrice: "",
@@ -180,7 +109,7 @@ export function ProductConfigTab() {
     try {
       const [catsRes, prodsRes] = await Promise.all([
         categoryService.getCategories().catch(() => ({ data: [] })),
-        productService.getAdminProducts().catch(() => productService.getProducts()),
+        productService.getAdminProducts(undefined, undefined, 0, ADMIN_PRODUCT_LIMIT).catch(() => productService.getProducts()),
       ]);
       setCategories(catsRes?.data || []);
       setProducts(prodsRes?.data?.content || prodsRes?.data || []);
@@ -197,7 +126,7 @@ export function ProductConfigTab() {
 
   const refreshProducts = async () => {
     try {
-      const res = await productService.getAdminProducts();
+      const res = await productService.getAdminProducts(undefined, undefined, 0, ADMIN_PRODUCT_LIMIT);
       setProducts(res?.data?.content || res?.data || []);
     } catch {
       // keep the current list; the next page load will catch up
@@ -214,73 +143,56 @@ export function ProductConfigTab() {
     [categories]
   );
 
+  /** Products that can be linked as other sizes (they need a size of their own) */
+  const sameProductOptions: DropdownOption[] = useMemo(
+    () => [
+      { value: "", label: "Not linked" },
+      ...products
+        .filter((p) => p.id && p.id !== editingId && p.sizeLabel)
+        .map((p) => ({ value: p.id!, label: getProductName(p), sublabel: getCategoryName(p) || undefined })),
+    ],
+    [products, editingId]
+  );
+
+  /** Picking a product on a new form fills any empty details from it, to save typing */
+  const handleSameProductChange = (value: number | "") => {
+    const source = value ? products.find((p) => p.id === value) : undefined;
+    setFormData((prev) => {
+      const next = { ...prev, sizeOf: value };
+      if (!source || editingId) return next;
+      return {
+        ...next,
+        name: prev.name || source.name || "",
+        categoryId: prev.categoryId || categoryIdOf(source),
+        description: prev.description || source.description || "",
+        details: prev.details || source.details || "",
+        ingredients: prev.ingredients || source.ingredients || "",
+      };
+    });
+  };
+
   const handleOpenNew = () => {
     setEditingId(null);
-    setSizeOf(null);
-    setFamilySizes([]);
-    setSavedSizeLabel(null);
     setActiveTab("general");
     setFormData(defaultForm());
     setIsDialogOpen(true);
   };
 
-  /** Loads a product's sizes into the strip (the list rows don't include them). */
-  const loadFamily = async (id: number) => {
-    try {
-      const res = await productService.getAdminProduct(id);
-      setFamilySizes(res.data?.sizes ?? []);
-    } catch {
-      setFamilySizes([]);
+  /** The category id of a product row, whatever shape the API returned it in. */
+  const categoryIdOf = (prod: any): number | "" => {
+    if (typeof prod.category === "object" && prod.category?.id) return prod.category.id;
+    if (prod.categoryId) return prod.categoryId;
+    if (typeof prod.category === "string") {
+      return categories.find((c) => c.name.toLowerCase() === prod.category.toLowerCase())?.id ?? "";
     }
-  };
-
-  /** Opens another size of the same item. */
-  const handleOpenSize = async (id: number) => {
-    try {
-      const res = await productService.getAdminProduct(id);
-      handleOpenEdit(res.data);
-    } catch (e: any) {
-      toast.error(e?.message || "Couldn't open that size.");
-    }
-  };
-
-  /** New size of the current item: shared details copied, own price, stock and photos. */
-  const handleAddSize = () => {
-    if (!editingId) return;
-    setSizeOf(editingId);
-    setEditingId(null);
-    setSavedSizeLabel(null);
-    setActiveTab("general");
-    setFormData({
-      ...defaultForm(),
-      name: formData.name,
-      categoryId: formData.categoryId,
-      description: formData.description,
-      details: formData.details,
-      ingredients: formData.ingredients,
-      averageRating: formData.averageRating,
-      reviewCount: formData.reviewCount,
-      stockQuantity: "",
-    });
+    return "";
   };
 
   const handleOpenEdit = (prod: any) => {
     setEditingId(prod.id || null);
-    setSizeOf(null);
-    setSavedSizeLabel(prod.sizeLabel || null);
-    setFamilySizes(prod.sizes ?? []);
-    if (!prod.sizes && prod.id) void loadFamily(prod.id);
     setActiveTab("general");
 
-    let catId: number | "" = "";
-    if (typeof prod.category === "object" && prod.category?.id) {
-      catId = prod.category.id;
-    } else if (prod.categoryId) {
-      catId = prod.categoryId;
-    } else if (typeof prod.category === "string") {
-      const matched = categories.find((c) => c.name.toLowerCase() === prod.category.toLowerCase());
-      if (matched) catId = matched.id;
-    }
+    const catId = categoryIdOf(prod);
 
     let imgs: ProductFormValues["images"] = [];
     if (Array.isArray(prod.images) && prod.images.length > 0) {
@@ -300,6 +212,10 @@ export function ProductConfigTab() {
       name: prod.name || "",
       sku: prod.sku || "",
       sizeLabel: prod.sizeLabel || "",
+      // Linked sizes share a group; pointing at any other member keeps the link
+      sizeOf: prod.variantGroup
+        ? products.find((p) => p.variantGroup === prod.variantGroup && p.id !== prod.id)?.id ?? ""
+        : "",
       categoryId: catId,
       sellingPrice: prod.sellingPrice ?? prod.price ?? "",
       buyingPrice: prod.buyingPrice ?? "",
@@ -364,7 +280,9 @@ export function ProductConfigTab() {
     };
     if (!formData.name?.trim()) return fail("general", "Product name is required.");
     if (!formData.categoryId) return fail("general", "Please select a category.");
-    if (sizeOf && !formData.sizeLabel.trim()) return fail("general", "Enter the size, for example 500 g.");
+    if (formData.sizeOf && !formData.sizeLabel.trim()) {
+      return fail("general", "Enter this product's size (for example 500 g) to link it with its other sizes.");
+    }
     if (!formData.sellingPrice || Number(formData.sellingPrice) <= 0) return fail("pricing", "Selling price must be > 0.");
     if (formData.buyingPrice === "" || Number(formData.buyingPrice) < 0) return fail("pricing", "Buying price cannot be negative.");
     if (formData.offerPrice !== "" && Number(formData.offerPrice) > Number(formData.sellingPrice)) {
@@ -381,7 +299,8 @@ export function ProductConfigTab() {
         sku: formData.sku?.trim() || undefined,
         // "" clears the size; the server tidies "250g" into "250 g"
         sizeLabel: formData.sizeLabel.trim(),
-        sizeOf: sizeOf ?? undefined,
+        // Editing: 0 removes the link; creating: only sent when linked
+        sizeOf: formData.sizeOf ? Number(formData.sizeOf) : editingId ? 0 : undefined,
         categoryId: Number(formData.categoryId),
         sellingPrice: Number(formData.sellingPrice),
         buyingPrice: Number(formData.buyingPrice),
@@ -404,8 +323,9 @@ export function ProductConfigTab() {
         : await productService.createProduct(payload);
       const saved = res.data;
       toast.success(editingId ? `"${getProductName(saved)}" updated!` : `"${getProductName(saved)}" created!`);
-      if (saved.variantGroup || sizeOf) {
-        // Shared details were copied to the other sizes too
+      const wasLinked = !!products.find((p) => p.id === editingId)?.variantGroup;
+      if (saved.variantGroup || wasLinked) {
+        // Linking changes other rows too (their size picker)
         void refreshProducts();
       } else {
         setProducts((prev) => (editingId ? prev.map((p) => (p.id === editingId ? saved : p)) : [saved, ...prev]));
@@ -462,7 +382,7 @@ export function ProductConfigTab() {
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-bold text-zinc-900 dark:text-white text-sm line-clamp-1">{prod.name}</span>
                 {prod.sizeLabel && (
-                  <span className="text-[10px] font-bold bg-[#5c8b29]/10 text-[#4a7021] px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] font-bold bg-brand/10 text-brand-strong px-1.5 py-0.5 rounded">
                     {prod.sizeLabel}
                   </span>
                 )}
@@ -473,7 +393,7 @@ export function ProductConfigTab() {
                 )}
               </div>
               <div className="flex items-center gap-2 text-[11px]">
-                {catName && <span className="text-[#5c8b29] font-semibold">{catName}</span>}
+                {catName && <span className="text-brand font-semibold">{catName}</span>}
                 {prod.sku && <span className="font-mono text-zinc-400">#{prod.sku}</span>}
               </div>
             </div>
@@ -501,7 +421,7 @@ export function ProductConfigTab() {
           <div className="flex items-center gap-1.5">
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${
-                qty <= 0 ? "bg-red-500 animate-pulse" : qty <= 5 ? "bg-amber-500" : "bg-[#5c8b29]"
+                qty <= 0 ? "bg-red-500 animate-pulse" : qty <= 5 ? "bg-amber-500" : "bg-brand"
               }`}
             />
             <span className="text-xs font-semibold">{qty <= 0 ? "Out of Stock" : `${qty} in stock`}</span>
@@ -520,7 +440,7 @@ export function ProductConfigTab() {
             <div className="flex items-center gap-1.5">
               {offerPrice ? (
                 <>
-                  <span className="font-bold text-[#5c8b29]">৳ {offerPrice.toLocaleString()}</span>
+                  <span className="font-bold text-brand">৳ {offerPrice.toLocaleString()}</span>
                   <span className="text-[10px] text-zinc-400 line-through">৳ {sellPrice.toLocaleString()}</span>
                 </>
               ) : (
@@ -545,7 +465,7 @@ export function ProductConfigTab() {
         );
         return (
           <div>
-            <span className={`text-xs font-black ${isProf ? "text-[#5c8b29]" : "text-red-500"}`}>
+            <span className={`text-xs font-black ${isProf ? "text-brand" : "text-red-500"}`}>
               {isProf ? "+" : ""}
               {m}%
             </span>
@@ -611,7 +531,7 @@ export function ProductConfigTab() {
       <Modal
         isOpen={isDialogOpen}
         onOpenChange={setIsDialogOpen}
-        title={editingId ? "Edit Product" : sizeOf ? "New Size" : "New Product"}
+        title={editingId ? "Edit Product" : "New Product"}
         description="Configure product details, pricing, inventory, and images."
         onSave={handleSave}
         saveText={editingId ? "Save Changes" : "Create Product"}
@@ -619,22 +539,6 @@ export function ProductConfigTab() {
         size="lg"
       >
         <div className="space-y-5">
-          {(editingId || sizeOf) && (
-            <SizeStrip
-              sizes={familySizes}
-              currentId={editingId}
-              disabled={isSaving}
-              canAdd={!!editingId && !!savedSizeLabel && canCreate}
-              addHint={
-                editingId && !savedSizeLabel
-                  ? "Give this item a size and save it to add more sizes."
-                  : "Name, category and descriptions are shared by all sizes."
-              }
-              onOpen={handleOpenSize}
-              onAdd={handleAddSize}
-            />
-          )}
-
           <SegmentedTabs
             fullWidth
             value={activeTab}
@@ -652,7 +556,7 @@ export function ProductConfigTab() {
                       activeTab === "media"
                         ? "bg-white/20"
                         : formData.images.length >= 2
-                          ? "bg-[#5c8b29]/15 text-[#5c8b29]"
+                          ? "bg-brand/15 text-brand"
                           : "bg-amber-100 text-amber-700"
                     )}
                   >
@@ -677,9 +581,9 @@ export function ProductConfigTab() {
 
               <FormField
                 label="Size"
-                required={!!sizeOf || familySizes.length > 1}
-                optional={!sizeOf && familySizes.length <= 1}
-                hint="Pack size shown on the card, e.g. 250 g. Leave empty if it's sold in one size."
+                required={!!formData.sizeOf}
+                optional={!formData.sizeOf}
+                hint="Shown on the product card, e.g. 250 g. Leave empty if it's sold in one size."
               >
                 <div className="space-y-2">
                   <Input
@@ -699,8 +603,8 @@ export function ProductConfigTab() {
                         className={cn(
                           "h-6 px-2 rounded-md border text-[11px] font-semibold transition-colors cursor-pointer",
                           formData.sizeLabel === preset
-                            ? "border-[#5c8b29] bg-[#5c8b29]/10 text-[#4a7021]"
-                            : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-[#5c8b29]"
+                            ? "border-brand bg-brand/10 text-brand-strong"
+                            : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-brand"
                         )}
                       >
                         {preset}
@@ -708,6 +612,23 @@ export function ProductConfigTab() {
                     ))}
                   </div>
                 </div>
+              </FormField>
+
+              <FormField
+                label="Same product as"
+                optional
+                hint="Sold in other sizes too? Pick one of them, and customers can switch size on the product page."
+              >
+                <Dropdown
+                  options={sameProductOptions}
+                  value={formData.sizeOf}
+                  onChange={handleSameProductChange}
+                  placeholder="Not linked"
+                  searchable
+                  searchPlaceholder="Search products..."
+                  className="w-full"
+                  disabled={isSaving}
+                />
               </FormField>
 
               <div className="grid grid-cols-2 gap-3">
@@ -784,7 +705,7 @@ export function ProductConfigTab() {
                   hint="Promotional price"
                   action={
                     discountPct > 0 && (
-                      <span className="text-[10px] font-bold text-[#5c8b29] bg-[#5c8b29]/10 px-1.5 rounded">
+                      <span className="text-[10px] font-bold text-brand bg-brand/10 px-1.5 rounded">
                         -{discountPct}%
                       </span>
                     )
@@ -795,7 +716,7 @@ export function ProductConfigTab() {
                     onChange={(v) => setFormData({ ...formData, offerPrice: v })}
                     placeholder="850"
                     disabled={isSaving}
-                    className="text-[#5c8b29]"
+                    className="text-brand"
                   />
                 </FormField>
 
@@ -825,13 +746,13 @@ export function ProductConfigTab() {
                 <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <span className="text-[11px] font-semibold text-zinc-500 block">Estimated Unit Profit</span>
-                    <div className={`text-base font-extrabold ${isProfit ? "text-[#5c8b29]" : "text-red-500"}`}>
+                    <div className={`text-base font-extrabold ${isProfit ? "text-brand" : "text-red-500"}`}>
                       {isProfit ? "+" : ""}৳ {profit.toLocaleString()}
                     </div>
                   </div>
                   <div className="text-right space-y-0.5">
                     <span className="text-[11px] font-semibold text-zinc-500 block">Gross Margin</span>
-                    <div className={`text-base font-extrabold ${isProfit ? "text-[#5c8b29]" : "text-red-500"}`}>
+                    <div className={`text-base font-extrabold ${isProfit ? "text-brand" : "text-red-500"}`}>
                       {margin}%
                     </div>
                   </div>

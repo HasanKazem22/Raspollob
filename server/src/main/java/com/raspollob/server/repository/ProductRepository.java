@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,10 +23,6 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
     /** All sizes of one item, including inactive ones (callers filter and sort). */
     List<Product> findByVariantGroup(String variantGroup);
-
-    /** Which of these image files are still used by some product (sizes may share photos). */
-    @Query("SELECT DISTINCT i.imageUrl FROM ProductImage i WHERE i.imageUrl IN :urls")
-    List<String> findImageUrlsInUse(@Param("urls") Collection<String> urls);
 
     /**
      * Home Page Trending Section: Top active products flagged as trending.

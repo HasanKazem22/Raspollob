@@ -28,6 +28,8 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { FloatingCart } from "@/components/shop/FloatingCart";
 import { FloatingContact } from "@/components/FloatingContact";
+import { OfferPopup } from "@/components/shop/OfferPopup";
+import { BRAND_BOOT_SCRIPT } from "@/lib/brand";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { StoreConfigProvider } from "@/context/StoreConfigContext";
@@ -40,11 +42,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // suppressHydrationWarning: browser extensions (ColorZilla, Grammarly, dark-mode tools…) add
+    // attributes to <html>/<body> before React loads. This ignores attribute differences on these
+    // two tags only; mismatches anywhere inside the app are still reported.
     <html
       lang="en"
       className={`${lora.variable} ${geist.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="h-screen flex flex-col overflow-hidden bg-[#FDFBF9] text-zinc-900">
+      <head>
+        {/* Applies the last known brand colour before the first paint (no flash of the default) */}
+        <script dangerouslySetInnerHTML={{ __html: BRAND_BOOT_SCRIPT }} />
+      </head>
+      <body className="h-screen flex flex-col overflow-hidden bg-background text-zinc-900" suppressHydrationWarning>
         <AuthProvider>
           <StoreConfigProvider>
           <TooltipProvider>
@@ -65,7 +75,7 @@ export default function RootLayout({
                 },
                 success: {
                   iconTheme: {
-                    primary: '#5c8b29',
+                    primary: 'var(--brand)',
                     secondary: '#ffffff',
                   },
                 },
@@ -80,6 +90,7 @@ export default function RootLayout({
             <Navbar />
             <FloatingCart />
             <FloatingContact />
+            <OfferPopup />
             <main className="flex-1 overflow-y-auto min-h-0 flex flex-col">
               <div className="flex-1">
                 {children}

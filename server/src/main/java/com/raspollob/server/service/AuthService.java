@@ -7,7 +7,9 @@ import com.raspollob.server.dto.SignupRequest;
 import com.raspollob.server.entity.Role;
 import com.raspollob.server.entity.User;
 import com.raspollob.server.exception.UserAlreadyExistsException;
+import com.raspollob.server.repository.RoleRepository;
 import com.raspollob.server.repository.UserRepository;
+import com.raspollob.server.security.PermissionCatalog;
 import com.raspollob.server.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,12 +21,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -49,12 +53,19 @@ public class AuthService {
                 .mobile(request.getMobile())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
+                // Public sign-up always creates a customer; staff accounts are created in the admin panel
+                .roles(new java.util.HashSet<>(Set.of(customerRole())))
                 .isActive(true)
                 .build();
 
         userRepository.save(user);
 
         return buildAuthResponse(user);
+    }
+
+    private Role customerRole() {
+        return roleRepository.findByName(PermissionCatalog.CUSTOMER)
+                .orElseThrow(() -> new IllegalStateException("The CUSTOMER role is missing; it is created on startup."));
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -101,12 +112,19 @@ public class AuthService {
 
         Map<String, Object> rolePermissionTree = rolePermissionService.getMergedPermissionsForRoles(roleNames);
 
-        AuthResponse.UserSummary userSummary = AuthResponse.UserSummary.builder()
+        AuthResponse.UserSummary.UserSummaryBuilder summary = AuthResponse.UserSummary.builder()
                 .id(userId)
                 .username(username)
+                .fullName(fullName)
                 .email(email)
-                .roles(roleNames)
-                .build();
+                .roles(roleNames);
+        if (userDetails instanceof User user) {
+            summary.mobile(user.getMobile())
+                    .city(user.getCity())
+                    .address(user.getAddress())
+                    .avatarUrl(user.getAvatarUrl());
+        }
+        AuthResponse.UserSummary userSummary = summary.build();
 
         return AuthResponse.builder()
                 .accessToken(accessToken)

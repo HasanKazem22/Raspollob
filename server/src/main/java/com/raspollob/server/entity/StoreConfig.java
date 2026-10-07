@@ -26,8 +26,15 @@ public class StoreConfig extends BaseEntity {
     private String promoBannerImage;
 
     private String storeLogo;
+    /** Brand colour "#RRGGBB" for the whole site (frontend design token --brand); null = default */
+    @Column(length = 7)
     private String primaryColor;
+    /** No longer used by the site (one brand colour) */
     private String secondaryColor;
+
+    /** Text under the logo in the site footer */
+    @Column(length = 300)
+    private String footerDescription;
 
     private String categorySectionTitle;
     private String categorySectionDesc;
@@ -103,6 +110,32 @@ public class StoreConfig extends BaseEntity {
     private String storePhone;
     private String storeEmail;
     private String storeHours;
+
+    // ── Welcome offer popup (shown to visitors while enabled and inside its dates) ──
+    private Boolean offerEnabled;
+
+    @Column(length = 500)
+    private String offerImage;
+
+    @Column(length = 120)
+    private String offerTitle;
+
+    @Column(length = 500)
+    private String offerText;
+
+    @Column(length = 40)
+    private String offerPromoCode;
+
+    @Column(length = 40)
+    private String offerButtonText;
+
+    /** Same-site path ("/category/honey") or https:// URL */
+    @Column(length = 300)
+    private String offerButtonLink;
+
+    /** Store-local time (Asia/Dhaka); null = no limit */
+    private java.time.LocalDateTime offerStartsAt;
+    private java.time.LocalDateTime offerEndsAt;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "store_config_id")

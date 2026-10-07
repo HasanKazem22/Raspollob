@@ -72,7 +72,7 @@ export function HeroBanner() {
                   onClick={() => goTo(index)}
                   aria-label={`Go to slide ${index + 1}`}
                   className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                    index === currentSlide ? "bg-[#5c8b29] w-6" : "bg-black/20 hover:bg-black/40"
+                    index === currentSlide ? "bg-brand w-6" : "bg-black/20 hover:bg-black/40"
                   }`}
                 />
               ))}

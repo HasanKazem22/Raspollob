@@ -75,6 +75,8 @@ export interface ProductFormValues {
   name: string;
   sku: string;
   sizeLabel: string;
+  /** "Same product as": a product to link sizes with, "" when not linked */
+  sizeOf: number | "";
   categoryId: number | "";
   sellingPrice: number | "";
   buyingPrice: number | "";

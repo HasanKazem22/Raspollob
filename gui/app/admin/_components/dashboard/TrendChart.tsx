@@ -9,7 +9,8 @@ import { useEffect, useRef, useState } from "react";
  * the gray is below 3:1 contrast, so the legend, tooltip and table view carry its values.
  */
 
-const ACCENT = "#5c8b29";
+/** Follows the store's brand colour (set in Admin → Home → Brand & Colors) */
+const ACCENT = "var(--brand)";
 const PREVIOUS = "#a8a29e";
 const GRID = "#ececea";
 const BASELINE = "#d4d4d1";
@@ -110,7 +111,7 @@ export function TrendChart({
 
       <div
         ref={wrapRef}
-        className="relative outline-none focus-visible:ring-2 focus-visible:ring-[#5c8b29]/30 rounded-lg"
+        className="relative outline-none focus-visible:ring-2 focus-visible:ring-brand/30 rounded-lg"
         tabIndex={0}
         role="img"
         aria-label={`${seriesLabel} trend. Use left and right arrow keys to read values.`}
@@ -141,13 +142,13 @@ export function TrendChart({
 
               {/* Previous period (context), then current (the story) */}
               <path d={linePath("previous")} fill="none" stroke={PREVIOUS} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-              <path d={areaPath} fill={ACCENT} fillOpacity={0.1} />
-              <path d={linePath("value")} fill="none" stroke={ACCENT} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+              <path d={areaPath} style={{ fill: ACCENT }} fillOpacity={0.1} />
+              <path d={linePath("value")} fill="none" style={{ stroke: ACCENT }} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
 
               {/* End marker + direct label on the current series */}
               {n > 0 && active === null && (
                 <>
-                  <circle cx={x(last)} cy={y(points[last].value)} r={4} fill={ACCENT} stroke="#fff" strokeWidth={2} />
+                  <circle cx={x(last)} cy={y(points[last].value)} r={4} style={{ fill: ACCENT }} stroke="#fff" strokeWidth={2} />
                   <text
                     x={x(last)}
                     y={y(points[last].value) - 10}
@@ -164,7 +165,7 @@ export function TrendChart({
                 <g>
                   <line x1={x(active)} x2={x(active)} y1={0} y2={innerH} stroke={BASELINE} strokeWidth={1} />
                   <circle cx={x(active)} cy={y(activePoint.previous)} r={4} fill={PREVIOUS} stroke="#fff" strokeWidth={2} />
-                  <circle cx={x(active)} cy={y(activePoint.value)} r={4.5} fill={ACCENT} stroke="#fff" strokeWidth={2} />
+                  <circle cx={x(active)} cy={y(activePoint.value)} r={4.5} style={{ fill: ACCENT }} stroke="#fff" strokeWidth={2} />
                 </g>
               )}
 

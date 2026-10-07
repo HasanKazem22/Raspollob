@@ -35,6 +35,22 @@ public final class PermissionCatalog {
     public static final String GUEST = "GUEST";
     public static final Set<String> SYSTEM_ROLES = Set.of(ADMIN, MANAGER, CUSTOMER, GUEST);
 
+    /**
+     * Roles that describe shoppers, not staff. CUSTOMER is given only by public sign-up; GUEST is the
+     * permission set for visitors who aren't signed in and is never assigned to an account.
+     */
+    public static final Set<String> NON_STAFF_ROLES = Set.of(CUSTOMER, GUEST);
+
+    /** Whether a role can be given to a staff account (ADMIN, MANAGER and any custom role). */
+    public static boolean isStaffRole(String roleName) {
+        return roleName != null && !NON_STAFF_ROLES.contains(roleName);
+    }
+
+    /** The one rule for "staff vs customer": an account is staff when it holds any staff role. */
+    public static boolean isStaff(java.util.Collection<String> roleNames) {
+        return roleNames.stream().anyMatch(PermissionCatalog::isStaffRole);
+    }
+
     private static final List<Action> CRUD = List.of(
             new Action("create", "Add new"),
             new Action("update", "Edit"),

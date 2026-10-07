@@ -11,6 +11,7 @@ import com.raspollob.server.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -186,6 +187,31 @@ public class OrderService {
     }
 
     // =========================================================================
+    // Signed-in customers: their own orders
+    // =========================================================================
+
+    /** Orders placed while signed in to this account, newest first. */
+    @Transactional(readOnly = true)
+    public Page<OrderSummaryResponse> myOrders(Long userId, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 50),
+                Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
+        return orderRepository.findByUser_Id(userId, pageable).map(o -> {
+            OrderSummaryResponse summary = toSummary(o);
+            summary.setId(null); // internal id is for staff screens only
+            return summary;
+        });
+    }
+
+    /** One of the customer's own orders; anyone else's order is "not found". */
+    @Transactional(readOnly = true)
+    public OrderResponse myOrder(Long userId, String orderNumber) {
+        return orderRepository.findByOrderNumber(orderNumber == null ? "" : orderNumber.trim().toUpperCase(Locale.ROOT))
+                .filter(o -> o.getUser() != null && o.getUser().getId().equals(userId))
+                .map(o -> toResponse(o, false))
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found in your account."));
+    }
+
+    // =========================================================================
     // Admin
     // =========================================================================
 
@@ -196,13 +222,32 @@ public class OrderService {
                         .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
                 : null;
         return orderRepository.searchAdmin(status, pattern,
-                        PageRequest.of(page, Math.min(size, 200), Sort.by(Sort.Direction.DESC, "createdAt")))
+                        PageRequest.of(page, Math.min(size, 200),
+                                Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))))
                 .map(this::toSummary);
     }
 
     @Transactional(readOnly = true)
     public OrderResponse getForAdmin(Long id) {
         return toResponse(find(id), true);
+    }
+
+    /** Most delivery slips printed in one go (one A6 page each). */
+    public static final int MAX_SLIPS_PER_PRINT = 50;
+
+    /** Several orders for printing delivery slips together, in the order they were asked for. */
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getForSlips(List<Long> ids) {
+        List<Long> wanted = ids.stream().filter(Objects::nonNull).distinct().toList();
+        if (wanted.isEmpty()) {
+            throw new BadRequestException("Choose at least one order to print.");
+        }
+        if (wanted.size() > MAX_SLIPS_PER_PRINT) {
+            throw new BadRequestException("Print at most " + MAX_SLIPS_PER_PRINT + " slips at a time.");
+        }
+        Map<Long, Order> byId = orderRepository.findAllById(wanted).stream()
+                .collect(Collectors.toMap(Order::getId, o -> o));
+        return wanted.stream().map(byId::get).filter(Objects::nonNull).map(o -> toResponse(o, true)).toList();
     }
 
     @Transactional

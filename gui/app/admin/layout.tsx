@@ -12,26 +12,13 @@ import { AccessDeniedCard } from "@/components/ui/AccessDeniedCard";
 import { Loader } from "@/components/ui/loader";
 import { useAuth } from "@/context/AuthContext";
 import { ADMIN_NAV } from "@/components/admin/adminNav";
+import { Copyright, DeveloperCredit } from "@/components/DeveloperCredit";
+import { AdminCountsProvider, CountBadge, useAdminCounts } from "@/components/admin/AdminCounts";
 
 // Sidebar items and their permissions live in components/admin/adminNav.ts
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const { can, isReady, canAccessAdmin } = useAuth();
-
-  // Admin uses the sans UI font everywhere, including dialogs portaled to <body>
-  useEffect(() => {
-    document.documentElement.classList.add("admin-ui");
-    return () => document.documentElement.classList.remove("admin-ui");
-  }, []);
-
-  // Dynamic Sidebar Filtering based on Server RolePermission Tree
-  const filteredSidebarItems = ADMIN_NAV.filter((item) => can(item.permission));
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { isReady, canAccessAdmin } = useAuth();
 
   // Middleware redirects visitors without a session; this blocks signed-in customers
   if (!isReady) {
@@ -46,6 +33,29 @@ export default function AdminLayout({
       />
     );
   }
+
+  // Badge counts load only for staff who are allowed in
+  return (
+    <AdminCountsProvider>
+      <AdminShell>{children}</AdminShell>
+    </AdminCountsProvider>
+  );
+}
+
+function AdminShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const counts = useAdminCounts();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { can } = useAuth();
+
+  // Admin uses the sans UI font everywhere, including dialogs portaled to <body>
+  useEffect(() => {
+    document.documentElement.classList.add("admin-ui");
+    return () => document.documentElement.classList.remove("admin-ui");
+  }, []);
+
+  // Dynamic Sidebar Filtering based on Server RolePermission Tree
+  const filteredSidebarItems = ADMIN_NAV.filter((item) => can(item.permission));
 
   return (
     <>
@@ -66,12 +76,14 @@ export default function AdminLayout({
           <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
             {filteredSidebarItems.map((item) => {
               const isActive = pathname === item.href;
+              const count = item.countKey ? counts[item.countKey] ?? 0 : 0;
+              const label = count > 0 ? `${item.name}, ${count} new` : item.name;
               return (
                 // Labels are hidden when collapsed, so the tooltip names the page
-                <Tooltip key={item.href} content={isCollapsed ? item.name : undefined} side="right">
+                <Tooltip key={item.href} content={isCollapsed ? label : undefined} side="right">
                   <Link
                     href={item.href}
-                    aria-label={isCollapsed ? item.name : undefined}
+                    aria-label={label}
                     className={cn(
                       "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all duration-200",
                       isActive
@@ -80,16 +92,40 @@ export default function AdminLayout({
                       isCollapsed ? "justify-center px-0" : "justify-between"
                     )}
                   >
-                    <div className="flex items-center gap-3">
-                      <item.icon className="h-4 w-4 shrink-0" />
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="relative shrink-0">
+                        <item.icon className="h-4 w-4" />
+                        {isCollapsed && <CountBadge count={count} className="absolute -top-2.5 -right-3" />}
+                      </span>
                       {!isCollapsed && <span className="truncate">{item.name}</span>}
                     </div>
-                    {!isCollapsed && isActive && <LuChevronRight className="h-4 w-4" />}
+                    {!isCollapsed &&
+                      (count > 0 ? (
+                        <CountBadge count={count} />
+                      ) : (
+                        isActive && <LuChevronRight className="h-4 w-4" />
+                      ))}
                   </Link>
                 </Tooltip>
               );
             })}
           </nav>
+
+          {/* Credits, centred at the bottom of the sidebar (logo only when collapsed) */}
+          <div className="border-t border-border px-3 py-4">
+            {isCollapsed ? (
+              <Tooltip content="Developed by Bear Tech · © Raspollob" side="right">
+                <span className="flex justify-center" tabIndex={0}>
+                  <DeveloperCredit size="sm" showLabel={false} />
+                </span>
+              </Tooltip>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <Copyright className="text-[10px] leading-snug text-zinc-500" />
+                <DeveloperCredit size="sm" />
+              </div>
+            )}
+          </div>
         </aside>
 
         {/* Floating Toggle Button */}
@@ -110,9 +146,7 @@ export default function AdminLayout({
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto bg-background p-8">
-          <div className="max-w-6xl mx-auto">
-            {children}
-          </div>
+          <div className="max-w-6xl mx-auto">{children}</div>
         </div>
       </div>
     </>

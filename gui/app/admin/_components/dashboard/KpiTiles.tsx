@@ -20,7 +20,7 @@ export function ChangeText({ current, previous, previousLabel }: { current: numb
   const up = change > 0;
   const Icon = up ? LuArrowUp : LuArrowDown;
   return (
-    <p className={cn("flex items-center gap-1 text-xs font-medium", up ? "text-[#3f6b1c]" : "text-red-600")}>
+    <p className={cn("flex items-center gap-1 text-xs font-medium", up ? "text-brand-strong" : "text-red-600")}>
       <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden />
       {Math.abs(change)}% {up ? "more" : "less"} than {previousLabel}
     </p>
@@ -53,7 +53,7 @@ export function StatCard({
           <p className="text-sm font-semibold text-zinc-900">{label}</p>
           <p className="text-xs text-zinc-500">{description}</p>
         </div>
-        <span className="w-9 h-9 shrink-0 rounded-xl bg-[#5c8b29]/10 text-[#4a7021] flex items-center justify-center">
+        <span className="w-9 h-9 shrink-0 rounded-xl bg-brand/10 text-brand-strong flex items-center justify-center">
           <Icon className="w-[18px] h-[18px]" />
         </span>
       </div>

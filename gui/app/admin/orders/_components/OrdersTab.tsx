@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LuShoppingBag } from "react-icons/lu";
+import { LuPrinter, LuShoppingBag } from "react-icons/lu";
 import { orderService } from "@/services/orderService";
 import { DataTable, ColumnDef } from "@/components/ui/table";
 import { Dropdown } from "@/components/ui/dropdown";
@@ -9,7 +9,15 @@ import { ServerErrorCard } from "@/components/ui/ServerErrorCard";
 import { RowPrintButton, RowViewButton } from "@/components/admin/RowActionButtons";
 import { OrderStatusBadge, PaymentStatusBadge } from "@/components/orders/OrderBadges";
 import { useAuth } from "@/context/AuthContext";
-import { formatDateTime, formatTaka, openPrintSlip, ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/orders";
+import {
+  formatDateTime,
+  formatTaka,
+  MAX_SLIPS_PER_PRINT,
+  openPrintSlip,
+  openPrintSlips,
+  ORDER_STATUS_LABEL,
+  PAYMENT_METHOD_LABEL,
+} from "@/lib/orders";
 import type { Order, OrderStatus, OrderSummary } from "@/types/order";
 import { OrderDetailModal } from "./OrderDetailModal";
 import { PERM } from "@/lib/permissions";
@@ -36,6 +44,8 @@ export function OrdersTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [openOrderId, setOpenOrderId] = useState<number | null>(null);
+  /** Orders ticked for printing their delivery slips together */
+  const [selected, setSelected] = useState<Set<number | string>>(new Set());
 
   const loadOrders = useCallback(async () => {
     setIsLoading(true);
@@ -128,6 +138,10 @@ export function OrdersTab() {
     },
   ];
 
+  // Only orders still in the list count (the filter may have changed since they were ticked)
+  const selectedOrders = orders.filter((o) => selected.has(o.id));
+  const tooMany = selectedOrders.length > MAX_SLIPS_PER_PRINT;
+
   if (error) {
     return (
       <div className="py-8">
@@ -148,13 +162,38 @@ export function OrdersTab() {
           o.customerName.toLowerCase().includes(q) ||
           o.customerPhone.includes(q)
         }
+        selectedIds={canPrint ? selected : undefined}
+        onSelectionChange={canPrint ? setSelected : undefined}
         toolbarActions={
+          <>
+          {canPrint && selectedOrders.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => openPrintSlips(selectedOrders.map((o) => o.id))}
+                disabled={tooMany}
+                title={tooMany ? `Select up to ${MAX_SLIPS_PER_PRINT} orders at a time` : undefined}
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <LuPrinter className="w-3.5 h-3.5" />
+                Print slips ({selectedOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelected(new Set())}
+                className="h-9 px-3.5 rounded-lg border border-red-200 bg-red-50 text-xs font-bold text-red-600 hover:bg-red-100 hover:border-red-300 cursor-pointer transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          )}
           <Dropdown
             options={STATUS_FILTERS.map((s) => ({ value: s, label: s === "ALL" ? "All statuses" : ORDER_STATUS_LABEL[s] }))}
             value={statusFilter}
             onChange={(v) => setStatusFilter(v)}
             className="min-w-[150px]"
           />
+          </>
         }
         emptyTitle={statusFilter === "ALL" ? "No orders yet" : `No ${ORDER_STATUS_LABEL[statusFilter].toLowerCase()} orders`}
         emptyDescription="Orders placed on the website will appear here."

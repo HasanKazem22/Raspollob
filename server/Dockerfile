@@ -22,7 +22,7 @@ COPY --from=build /app/target/*.jar app.jar
 
 USER app
 ENV UPLOAD_DIR=/app/uploads \
-    JAVA_OPTS="-XX:MaxRAMPercentage=75"
+    JAVA_OPTS="-XX:MaxRAMPercentage=75 -Duser.timezone=Asia/Dhaka"
 EXPOSE 8085
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

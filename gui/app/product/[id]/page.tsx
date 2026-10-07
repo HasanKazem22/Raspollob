@@ -33,21 +33,39 @@ function getGallery(product: Product): string[] {
   return images;
 }
 
-function RelatedProducts({ categoryId, current }: { categoryId: number; current: Product }) {
-  const fetchRelated = useCallback(
-    () => productService.getProducts(undefined, categoryId, 0, 6).then((res) => res.data.content),
-    [categoryId]
-  );
-  const { status, data = [] } = useRemoteData(fetchRelated);
-  const related = data
-    .filter((p) => p.id !== current.id && (!current.variantGroup || p.variantGroup !== current.variantGroup))
-    .slice(0, 5);
+const RELATED_COUNT = 5;
+
+/**
+ * Other products from the same category first (never other sizes of this one; they're in the size
+ * picker), topped up with the newest products from the rest of the store when the category is small.
+ */
+function RelatedProducts({ categoryId, current }: { categoryId?: number; current: Product }) {
+  const currentId = current.id;
+  const family = current.variantGroup;
+  const fetchRelated = useCallback(async () => {
+    const [sameCategory, newest] = await Promise.all([
+      categoryId
+        ? productService.getProducts(undefined, categoryId, 0, 12).then((res) => res.data.content)
+        : Promise.resolve([] as Product[]),
+      productService.getProducts(undefined, undefined, 0, 12).then((res) => res.data.content),
+    ]);
+    const seen = new Set<number | undefined>([currentId]);
+    const picked: Product[] = [];
+    for (const p of [...sameCategory, ...newest]) {
+      if (seen.has(p.id) || (family && p.variantGroup === family)) continue;
+      seen.add(p.id);
+      picked.push(p);
+      if (picked.length === RELATED_COUNT) break;
+    }
+    return picked;
+  }, [categoryId, currentId, family]);
+  const { status, data: related = [] } = useRemoteData(fetchRelated);
 
   if (status !== "loading" && related.length === 0) return null;
 
   return (
-    <div className={`${CONTAINER} pt-16 border-t border-zinc-100 mt-12`}>
-      <h2 className="text-2xl font-serif font-bold text-zinc-900 mb-8">You May Also Like</h2>
+    <div className={`${CONTAINER} pt-10 border-t border-zinc-100 mt-10`}>
+      <h2 className="text-xl md:text-2xl font-serif font-bold text-zinc-900 mb-6">You May Also Like</h2>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-5">
         {status === "loading"
           ? Array.from({ length: 5 }, (_, i) => <ProductCardSkeleton key={i} />)
@@ -73,8 +91,8 @@ function SizePicker({
   if (!current.sizeLabel) return null;
   const selectedId = pendingId ?? current.id;
   return (
-    <div className="mb-8">
-      <p className="text-sm font-semibold text-zinc-900 mb-3">
+    <div className="mb-6">
+      <p className="text-sm font-semibold text-zinc-900 mb-2.5">
         Size: <span className="font-bold">{sizes.find((s) => s.id === selectedId)?.sizeLabel ?? current.sizeLabel}</span>
       </p>
       {sizes.length > 1 && (
@@ -90,17 +108,17 @@ function SizePicker({
                 aria-checked={selected}
                 onClick={() => onSelect(size.id)}
                 className={`relative min-w-[92px] rounded-xl border-2 px-4 py-2.5 text-center transition-colors cursor-pointer ${
-                  selected ? "border-[#5c8b29] bg-[#5c8b29]/5" : "border-zinc-200 bg-white hover:border-zinc-300"
+                  selected ? "border-brand bg-brand/5" : "border-zinc-200 bg-white hover:border-zinc-300"
                 } ${size.inStock ? "" : "opacity-50"}`}
               >
-                <span className={`block text-sm font-bold ${selected ? "text-[#4a7021]" : "text-zinc-900"}`}>
+                <span className={`block text-sm font-bold ${selected ? "text-brand-strong" : "text-zinc-900"}`}>
                   {size.sizeLabel}
                 </span>
                 <span className="block text-xs text-zinc-500 mt-0.5">
                   {size.inStock ? `Tk ${price.toFixed(0)}` : "Out of stock"}
                 </span>
                 {size.id === pendingId && (
-                  <LuLoader className="absolute top-1.5 right-1.5 w-3 h-3 animate-spin text-[#5c8b29]" aria-label="Loading" />
+                  <LuLoader className="absolute top-1.5 right-1.5 w-3 h-3 animate-spin text-brand" aria-label="Loading" />
                 )}
               </button>
             );
@@ -113,14 +131,14 @@ function SizePicker({
 
 function ProductDetailsSkeleton() {
   return (
-    <div className={`${CONTAINER} py-8`}>
-      <Skeleton className="h-4 w-64 mb-8" />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+    <div className={`${CONTAINER} py-6`}>
+      <Skeleton className="h-3 w-56 mb-6" />
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] gap-8 lg:gap-12">
         <div className="space-y-4">
-          <Skeleton className="w-full aspect-[4/3] md:aspect-square rounded-3xl" />
-          <div className="grid grid-cols-4 gap-4">
-            {Array.from({ length: 4 }, (_, i) => (
-              <Skeleton key={i} className="aspect-square rounded-xl" />
+          <Skeleton className="w-full max-w-[480px] aspect-square rounded-2xl" />
+          <div className="grid grid-cols-5 gap-2.5 max-w-[480px]">
+            {Array.from({ length: 5 }, (_, i) => (
+              <Skeleton key={i} className="aspect-square rounded-lg" />
             ))}
           </div>
         </div>
@@ -139,12 +157,12 @@ function ProductDetailsSkeleton() {
 
 function ProductNotFound() {
   return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center bg-[#FDFBF9] px-4 text-center">
+    <div className="min-h-[60vh] flex flex-col items-center justify-center bg-background px-4 text-center">
       <h1 className="text-2xl font-serif font-bold mb-4">Product Not Found</h1>
       <p className="text-zinc-500 mb-8">The product you are looking for does not exist or is no longer available.</p>
       <Link
         href="/"
-        className="bg-[#5c8b29] hover:bg-[#4a7021] text-white font-bold py-3 px-8 rounded-full transition-colors"
+        className="bg-brand hover:bg-brand-hover text-white font-bold py-3 px-8 rounded-full transition-colors"
       >
         Back to Shop
       </Link>
@@ -266,7 +284,7 @@ export default function ProductDetailsPage() {
     }
     if (failedHere) {
       return (
-        <div className="min-h-[60vh] bg-[#FDFBF9] py-12">
+        <div className="min-h-[60vh] bg-background py-12">
           <ServerErrorCard
             error={failure.error}
             onRetry={() => {
@@ -279,7 +297,7 @@ export default function ProductDetailsPage() {
       );
     }
     return (
-      <div className="min-h-screen bg-[#FDFBF9] pb-20">
+      <div className="min-h-screen bg-background pb-20">
         <ProductDetailsSkeleton />
       </div>
     );
@@ -304,32 +322,32 @@ export default function ProductDetailsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#FDFBF9] pb-20">
+    <div className="min-h-screen bg-background pb-20">
       {/* Breadcrumb */}
-      <div className={`${CONTAINER} pt-6 pb-4`}>
-        <nav className="flex items-center gap-2 text-[13px] font-medium text-zinc-500">
-          <Link href="/" className="hover:text-[#5c8b29] transition-colors">Home</Link>
+      <div className={`${CONTAINER} pt-5 pb-2`}>
+        <nav className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 min-w-0">
+          <Link href="/" className="hover:text-brand transition-colors">Home</Link>
           {categoryName && (
             <>
               <span>/</span>
-              <Link href={categorySlug ? `/?category=${categorySlug}` : "/"} className="hover:text-[#5c8b29] transition-colors">
+              <Link href={categorySlug ? `/category/${categorySlug}` : "/"} className="hover:text-brand transition-colors">
                 {categoryName}
               </Link>
             </>
           )}
           <span>/</span>
-          <span className="text-zinc-900 line-clamp-1">{getProductName(product)}</span>
+          <span className="text-zinc-600 truncate">{getProductName(product)}</span>
         </nav>
       </div>
 
       {/* Main Product Section */}
-      <div className={`${CONTAINER} py-8`}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
-          {/* Left: Image Gallery */}
-          <div className="flex flex-col gap-4">
-            <div className="w-full aspect-[4/3] md:aspect-square bg-zinc-50 rounded-3xl flex items-center justify-center border border-zinc-100 relative overflow-hidden">
+      <div className={`${CONTAINER} py-4`}>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] gap-8 lg:gap-12 items-start">
+          {/* Left: Image Gallery (stays in view while scrolling the details) */}
+          <div className="flex flex-col gap-2.5 w-full max-w-[480px] mx-auto lg:mx-0 lg:sticky lg:top-24">
+            <div className="w-full aspect-square bg-zinc-50 rounded-2xl flex items-center justify-center border border-zinc-100 relative overflow-hidden">
               {isSale && (
-                <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded shadow-sm z-10">
+                <div className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm z-10">
                   SALE
                 </div>
               )}
@@ -340,19 +358,19 @@ export default function ProductDetailsPage() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-48 h-48 bg-zinc-200 rounded-2xl" />
+                <div className="w-32 h-32 bg-zinc-200 rounded-2xl" />
               )}
             </div>
 
             {gallery.length > 1 && (
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-5 gap-2.5">
                 {gallery.map((url, i) => (
                   <button
                     key={url + i}
                     onClick={() => setActiveImage(i)}
                     aria-label={`Show image ${i + 1}`}
-                    className={`aspect-square rounded-xl overflow-hidden border-2 transition-all bg-zinc-50 ${
-                      i === activeImage ? "border-[#5c8b29]" : "border-transparent hover:border-zinc-200"
+                    className={`aspect-square rounded-lg overflow-hidden border-2 transition-all bg-zinc-50 cursor-pointer ${
+                      i === activeImage ? "border-brand" : "border-transparent hover:border-zinc-200"
                     }`}
                   >
                     <img src={resolveMediaUrl(url)} alt="" className="w-full h-full object-cover" />
@@ -364,28 +382,28 @@ export default function ProductDetailsPage() {
 
           {/* Right: Product Info */}
           <div className="flex flex-col">
-            <span className="text-xs font-bold tracking-widest text-zinc-400 uppercase mb-3">
+            <span className="text-[11px] font-bold tracking-widest text-zinc-400 uppercase mb-2">
               {categoryName || "Raspollob"}
             </span>
-            <h1 className="text-3xl lg:text-4xl font-serif font-bold text-zinc-900 leading-tight mb-4">{product.name}</h1>
+            <h1 className="text-2xl lg:text-[28px] font-serif font-bold text-zinc-900 leading-snug mb-3 text-balance">{product.name}</h1>
 
             {/* Reviews */}
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-2.5 mb-5">
               <div className="flex items-center text-amber-400">
                 {Array.from({ length: 5 }, (_, i) => (
-                  <LuStar key={i} className={`w-4 h-4 ${i < Math.round(rating) ? "fill-amber-400" : "text-zinc-300"}`} />
+                  <LuStar key={i} className={`w-3.5 h-3.5 ${i < Math.round(rating) ? "fill-amber-400" : "text-zinc-300"}`} />
                 ))}
               </div>
-              <span className="text-sm font-medium text-zinc-500">
+              <span className="text-xs font-medium text-zinc-500">
                 {rating.toFixed(1)} ({product.reviewCount ?? 0} reviews)
               </span>
             </div>
 
             {/* Price */}
-            <div className="flex items-end gap-3 mb-8">
-              <span className="text-3xl font-bold text-zinc-900">Tk {currentPrice.toFixed(2)}</span>
-              {isSale && <span className="text-lg text-zinc-400 line-through mb-1">Tk {regularPrice.toFixed(2)}</span>}
-              {unitPrice && <span className="text-sm text-zinc-500 mb-1.5">({unitPrice})</span>}
+            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 mb-6">
+              <span className="text-2xl font-bold text-zinc-900">Tk {currentPrice.toFixed(2)}</span>
+              {isSale && <span className="text-base text-zinc-400 line-through">Tk {regularPrice.toFixed(2)}</span>}
+              {unitPrice && <span className="text-xs text-zinc-500">({unitPrice})</span>}
             </div>
 
             <SizePicker
@@ -396,19 +414,19 @@ export default function ProductDetailsPage() {
             />
 
             {product.description && (
-              <p className="text-[15px] text-zinc-600 leading-relaxed mb-8">{product.description}</p>
+              <p className="text-sm text-zinc-600 leading-relaxed mb-6">{product.description}</p>
             )}
 
-            <hr className="border-zinc-100 mb-8" />
+            <hr className="border-zinc-100 mb-6" />
 
             {/* Quantity and Add to Cart */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-8">
-              <div className="flex items-center justify-between border border-zinc-200 rounded-full px-4 py-3 sm:w-32 bg-white">
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+              <div className="flex items-center justify-between border border-zinc-200 rounded-full px-4 py-2.5 sm:w-32 bg-white">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   disabled={isOutOfStock}
                   aria-label="Decrease quantity"
-                  className="text-zinc-400 hover:text-[#5c8b29] transition-colors disabled:opacity-40"
+                  className="text-zinc-400 hover:text-brand transition-colors disabled:opacity-40"
                 >
                   <LuMinus className="w-4 h-4" />
                 </button>
@@ -417,7 +435,7 @@ export default function ProductDetailsPage() {
                   onClick={() => setQuantity(Math.min(stock, quantity + 1))}
                   disabled={isOutOfStock || quantity >= stock}
                   aria-label="Increase quantity"
-                  className="text-zinc-400 hover:text-[#5c8b29] transition-colors disabled:opacity-40"
+                  className="text-zinc-400 hover:text-brand transition-colors disabled:opacity-40"
                 >
                   <LuPlus className="w-4 h-4" />
                 </button>
@@ -425,7 +443,7 @@ export default function ProductDetailsPage() {
               <button
                 onClick={() => addToCart(product, quantity)}
                 disabled={isOutOfStock}
-                className="flex-1 bg-[#5c8b29] hover:bg-[#4a7021] text-white font-bold py-3 px-8 rounded-full shadow-lg shadow-[#5c8b29]/20 transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+                className="flex-1 bg-brand hover:bg-brand-hover text-white text-sm font-bold py-3 px-8 rounded-full shadow-lg shadow-brand/20 transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
               >
                 {isOutOfStock ? "Out of Stock" : "Add to Cart"}
               </button>
@@ -443,7 +461,7 @@ export default function ProductDetailsPage() {
                     }`}
                   >
                     {tab.label}
-                    {activeTab === tab.id && <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-[#5c8b29]" />}
+                    {activeTab === tab.id && <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-brand" />}
                   </button>
                 ))}
               </div>
@@ -458,7 +476,7 @@ export default function ProductDetailsPage() {
         </div>
       </div>
 
-      {categoryId && <RelatedProducts categoryId={categoryId} current={product} />}
+      <RelatedProducts categoryId={categoryId} current={product} />
     </div>
   );
 }

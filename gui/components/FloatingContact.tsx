@@ -69,7 +69,7 @@ export function FloatingContact() {
         aria-hidden={!isOpen}
       >
         {/* Header */}
-        <div className="bg-[#5c8b29] px-4 py-3.5 flex items-center justify-between">
+        <div className="bg-brand px-4 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
               <LuMessageCircle className="w-4 h-4 text-white" />
@@ -92,8 +92,8 @@ export function FloatingContact() {
         <div className="p-4">
           {submitted ? (
             <div className="py-6 text-center flex flex-col items-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-[#5c8b29]/10 flex items-center justify-center">
-                <LuCheck className="w-7 h-7 text-[#5c8b29]" />
+              <div className="w-14 h-14 rounded-full bg-brand/10 flex items-center justify-center">
+                <LuCheck className="w-7 h-7 text-brand" />
               </div>
               <div>
                 <p className="font-bold text-zinc-900 text-sm">Message Sent!</p>
@@ -103,7 +103,7 @@ export function FloatingContact() {
               </div>
               <button
                 onClick={handleClose}
-                className="mt-1 px-5 py-2 rounded-full bg-[#5c8b29] text-white text-xs font-bold hover:bg-[#4a7021] transition-colors cursor-pointer"
+                className="mt-1 px-5 py-2 rounded-full bg-brand text-white text-xs font-bold hover:bg-brand-hover transition-colors cursor-pointer"
               >
                 Close
               </button>
@@ -143,7 +143,7 @@ export function FloatingContact() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-10 rounded-xl bg-[#5c8b29] text-white text-sm font-bold hover:bg-[#4a7021] transition-colors flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
+                className="w-full h-10 rounded-xl bg-brand text-white text-sm font-bold hover:bg-brand-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
               >
                 {isSubmitting ? (
                   "Sending…"
@@ -167,7 +167,7 @@ export function FloatingContact() {
         className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 cursor-pointer pointer-events-auto ${
           isOpen
             ? "bg-zinc-700 hover:bg-zinc-800 rotate-90"
-            : "bg-[#5c8b29] hover:bg-[#4a7021] hover:scale-110"
+            : "bg-brand hover:bg-brand-hover hover:scale-110"
         }`}
       >
         {isOpen ? (

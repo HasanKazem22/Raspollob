@@ -30,6 +30,28 @@ public class DataSeeder implements CommandLineRunner {
         seedRoles();
         seedRolePermissionTrees();
         seedAdminUser();
+        repairAccountRoles();
+    }
+
+    /**
+     * GUEST is the permission set for visitors and is never assigned to an account, and every account
+     * needs a role. Accounts created by the old sign-up (no role) become customers. Idempotent.
+     */
+    private void repairAccountRoles() {
+        try {
+            int guestLinks = jdbcTemplate.update(
+                    "DELETE FROM user_roles WHERE role_id IN (SELECT id FROM roles WHERE name = 'GUEST')");
+            int fixed = jdbcTemplate.update(
+                    "INSERT INTO user_roles (user_id, role_id) " +
+                    "SELECT u.id, r.id FROM users u CROSS JOIN roles r " +
+                    "WHERE r.name = 'CUSTOMER' AND NOT EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id)");
+            if (guestLinks > 0 || fixed > 0) {
+                System.out.println("====== Account roles repaired: removed " + guestLinks
+                        + " GUEST assignment(s), gave CUSTOMER to " + fixed + " account(s) without a role ======");
+            }
+        } catch (Exception e) {
+            System.err.println("Account role repair skipped: " + e.getMessage());
+        }
     }
 
     private void ensureBaseEntityColumnsExist() {
