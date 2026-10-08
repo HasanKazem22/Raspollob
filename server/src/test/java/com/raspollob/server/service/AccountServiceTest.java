@@ -34,8 +34,8 @@ class AccountServiceTest {
     @BeforeEach
     void setUp() {
         user = User.builder()
-                .username("rahim")
-                .fullName("Rahim")
+                .username("bahar_uddin")
+                .fullName("Md Bahar Uddin")
                 .mobile("01712345678")
                 .password(encoder.encode("old-secret"))
                 .build();
@@ -62,7 +62,7 @@ class AccountServiceTest {
     void rejectsAMobileNumberUsedByAnotherAccount() {
         when(users.existsByMobile("01811111111")).thenReturn(true);
         UpdateAccountRequest request = new UpdateAccountRequest();
-        request.setFullName("Rahim Uddin");
+        request.setFullName("Md Bahar Uddin");
         request.setMobile("+8801811111111");
 
         assertThatThrownBy(() -> service.updateAccount(7L, request)).isInstanceOf(UserAlreadyExistsException.class);
@@ -71,13 +71,13 @@ class AccountServiceTest {
     @Test
     void savesProfileWithNormalisedMobile() {
         UpdateAccountRequest request = new UpdateAccountRequest();
-        request.setFullName("  Rahim Uddin ");
+        request.setFullName("  Md Bahar Uddin ");
         request.setMobile("01712345678");
         request.setCity(" Dhaka ");
         request.setAddress("  ");
 
         var saved = service.updateAccount(7L, request);
-        assertThat(saved.getFullName()).isEqualTo("Rahim Uddin");
+        assertThat(saved.getFullName()).isEqualTo("Md Bahar Uddin");
         assertThat(saved.getCity()).isEqualTo("Dhaka");
         assertThat(saved.getAddress()).isNull();
     }

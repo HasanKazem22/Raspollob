@@ -125,7 +125,7 @@ export default function SignupPage() {
             id="fullName"
             type="text"
             required
-            placeholder="John Doe"
+            placeholder="Md Bahar Uddin"
             value={formData.fullName}
             onChange={handleFullNameChange}
             className={inputClass}
@@ -140,7 +140,7 @@ export default function SignupPage() {
               id="username"
               type="text"
               required
-              placeholder="john_doe"
+              placeholder="bahar_uddin"
               value={formData.username}
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               className={inputClass}

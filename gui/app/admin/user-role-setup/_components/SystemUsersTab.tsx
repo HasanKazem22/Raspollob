@@ -238,7 +238,7 @@ export function SystemUsersTab() {
         <div className="space-y-4">
           <FormField label="Full Name" required>
             <Input
-              placeholder="e.g. Hasibul Hasan"
+              placeholder="e.g. Md Bahar Uddin"
               value={userForm.fullName}
               onChange={(e) => setUserForm({ ...userForm, fullName: e.target.value })}
             />
@@ -247,7 +247,7 @@ export function SystemUsersTab() {
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Username" required>
               <Input
-                placeholder="admin_hasan"
+                placeholder="bahar_uddin"
                 value={userForm.username}
                 onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
               />
@@ -266,7 +266,7 @@ export function SystemUsersTab() {
             <FormField label="Email Address" required>
               <Input
                 type="email"
-                placeholder="hasan@example.com"
+                placeholder="bahar@raspollob.com"
                 value={userForm.email}
                 onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
               />

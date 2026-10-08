@@ -74,7 +74,7 @@ class UserAdminServiceTest {
 
     @Test
     void customerRolesCantBeChangedFromTheAdminPanel() {
-        User customer = user(10, "rahim", "CUSTOMER");
+        User customer = user(10, "bahar_uddin", "CUSTOMER");
         when(users.findById(10L)).thenReturn(Optional.of(customer));
 
         AdminUserRequest promote = new AdminUserRequest();
@@ -97,7 +97,7 @@ class UserAdminServiceTest {
     @Test
     void cantRemoveYourselfOrTheMainAdmin() {
         when(users.findById(1L)).thenReturn(Optional.of(user(1, "admin", "ADMIN")));
-        when(users.findById(7L)).thenReturn(Optional.of(user(7, "karim", "MANAGER")));
+        when(users.findById(7L)).thenReturn(Optional.of(user(7, "bahar_uddin", "MANAGER")));
 
         assertThatThrownBy(() -> service.delete(1L, 7L)).isInstanceOf(BadRequestException.class);
         assertThatThrownBy(() -> service.delete(7L, 7L)).isInstanceOf(BadRequestException.class);
@@ -111,8 +111,8 @@ class UserAdminServiceTest {
 
     private static AdminUserRequest staff(List<Long> roleIds) {
         AdminUserRequest r = new AdminUserRequest();
-        r.setUsername("karim");
-        r.setFullName("Karim");
+        r.setUsername("bahar_uddin");
+        r.setFullName("Md Bahar Uddin");
         r.setMobile("01811111111");
         r.setPassword("strongpass");
         r.setRoleIds(roleIds);

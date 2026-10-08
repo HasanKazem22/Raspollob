@@ -74,7 +74,7 @@ export default function LoginPage() {
             id="identifier"
             type="text"
             required
-            placeholder="john_doe or john@example.com"
+            placeholder="bahar_uddin or bahar@raspollob.com"
             value={formData.identifier}
             onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
             className={inputClass}

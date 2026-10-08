@@ -225,7 +225,7 @@ export default function ProfilePage() {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Hasibul Hasan"
+                placeholder="Md Bahar Uddin"
               />
             </div>
             <div>
@@ -250,7 +250,7 @@ export default function ProfilePage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-9"
-                  placeholder="admin@example.com"
+                  placeholder="bahar@raspollob.com"
                 />
               </div>
             </div>
